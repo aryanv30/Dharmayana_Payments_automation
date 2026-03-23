@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dharmayana Invoice Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f6fa; color: #2d3436; min-height: 100vh; }
+
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 32px 0 28px; text-align: center; color: #fff; }
+        .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
+        .header p { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin-top: 6px; font-weight: 400; }
+
+        .container { max-width: 880px; margin: -16px auto 40px; padding: 0 20px; }
+
+        .card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #eef0f2; overflow: hidden; }
+        .card-title { font-size: 0.88rem; font-weight: 600; color: #1a1a2e; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .upload-zone { border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafbfc; }
+        .upload-zone:hover { border-color: #4a6cf7; background: #f4f6ff; }
+        .upload-zone.dragover { border-color: #4a6cf7; background: #edf0ff; }
+        .upload-zone.uploaded { border-color: #22c55e; background: #f0fdf4; border-style: solid; }
+        .upload-zone input { display: none; }
+        .upload-zone .upload-label { font-size: 0.85rem; color: #6b7280; font-weight: 500; }
+        .upload-zone .upload-sublabel { font-size: 0.75rem; color: #9ca3af; margin-top: 4px; }
+        .file-name { color: #16a34a; font-weight: 600; font-size: 0.85rem; margin-top: 6px; }
+
+        .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .row-2col .card { min-width: 0; overflow: hidden; }
+
+        .partners-preview { margin-top: 14px; overflow-x: auto; max-width: 100%; }
+        .partners-preview table { width: 100%; border-collapse: collapse; font-size: 0.72rem; table-layout: fixed; }
+        .partners-preview th, .partners-preview td { padding: 5px 6px; border: 1px solid #e5e7eb; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .partners-preview th { background: #f8f9fa; font-weight: 600; color: #374151; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; }
+        .partners-preview tr:nth-child(even) { background: #fafbfc; }
+        .partners-preview th:first-child, .partners-preview td:first-child { width: 30%; }
+
+        @media (max-width: 700px) {
+            .row-2col { grid-template-columns: 1fr; }
+        }
+
+        .period-row { display: flex; gap: 16px; align-items: center; }
+        .period-row label { font-size: 0.82rem; font-weight: 500; color: #4b5563; }
+        .period-row input[type="date"] { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; color: #374151; }
+
+        .payment-form { display: flex; gap: 10px; align-items: center; }
+        .payment-form select, .payment-form input { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; color: #374151; }
+        .payment-form select { flex: 2; background: #fff; }
+        .payment-form input[type="number"] { flex: 1; }
+        .payment-form input[type="text"] { flex: 2; }
+
+        .btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; font-family: inherit; transition: all 0.15s; }
+        .btn-add { background: #4a6cf7; color: #fff; }
+        .btn-add:hover { background: #3b5de7; }
+        .btn-generate { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; padding: 13px 36px; font-size: 0.92rem; border-radius: 8px; }
+        .btn-generate:hover { background: linear-gradient(135deg, #15803d, #166534); }
+        .btn-generate:disabled { background: #d1d5db; cursor: not-allowed; }
+
+        .additional-list { margin-top: 10px; }
+        .additional-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; background: #f8f9fa; border-radius: 6px; margin-bottom: 6px; font-size: 0.82rem; border: 1px solid #e5e7eb; }
+        .additional-item .info { flex: 1; color: #374151; }
+        .additional-item .info strong { color: #1a1a2e; }
+        .additional-item .remove-btn { color: #ef4444; cursor: pointer; font-weight: 600; margin-left: 12px; font-size: 0.9rem; }
+        .additional-item .remove-btn:hover { color: #dc2626; }
+
+        .generate-section { text-align: center; padding: 6px 0; }
+        .progress-bar { width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
+        .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #4a6cf7, #16a34a); border-radius: 2px; transition: width 0.3s; width: 0%; }
+        .status { margin-top: 14px; padding: 10px 14px; border-radius: 6px; display: none; font-size: 0.84rem; font-weight: 500; }
+        .status.success { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .status.info { display: block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+        .empty-state { text-align: center; color: #9ca3af; font-size: 0.8rem; padding: 8px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dharmayana Invoice Generator</h1>
+        <p>Partner payment processing & invoice generation</p>
+    </div>
+
+    <div class="container">
+        <div class="row-2col">
+            <div class="card">
+                <div class="card-title">Partner Details</div>
+                <div class="upload-zone" id="dbZone" onclick="document.getElementById('dbFile').click()">
+                    <input type="file" id="dbFile" accept=".xlsx,.xls,.csv">
+                    <div class="upload-label">Upload Partner Details Sheet</div>
+                    <div class="upload-sublabel">.xlsx, .xls, .csv</div>
+                    <div class="file-name" id="dbFileName"></div>
+                </div>
+                <div class="partners-preview" id="dbPreview"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Orders Sheet</div>
+                <div class="upload-zone" id="ordersZone" onclick="document.getElementById('ordersFile').click()">
+                    <input type="file" id="ordersFile" accept=".xlsx,.xls,.csv">
+                    <div class="upload-label">Upload Weekly Orders</div>
+                    <div class="upload-sublabel">.xlsx, .xls, .csv</div>
+                    <div class="file-name" id="ordersFileName"></div>
+                </div>
+                <div class="partners-preview" id="ordersPreview"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Payment Period</div>
+            <div class="period-row">
+                <label>From</label>
+                <input type="date" id="weekFrom">
+                <label>To</label>
+                <input type="date" id="weekTo">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Additional Payments</div>
+            <div class="payment-form">
+                <select id="addPartnerSelect">
+                    <option value="">Select Partner</option>
+                </select>
+                <input type="number" id="addAmount" placeholder="Amount" min="0">
+                <input type="text" id="addReason" placeholder="Reason">
+                <button class="btn btn-add" onclick="addAdditionalPayment()">Add</button>
+            </div>
+            <div class="additional-list" id="additionalList"></div>
+        </div>
+
+        <div class="card">
+            <div class="generate-section">
+                <button class="btn btn-generate" id="generateBtn" onclick="generateInvoices()" disabled>
+                    Generate Invoices & Download ZIP
+                </button>
+                <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+                <div class="status" id="statusMsg"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let partnerDB = [];
+        let ordersData = [];
+        let additionalPayments = [];
+
+        const SKU_KEYS = ['15 mins', '30 mins', '60 mins', 'Prashna', 'ShubhKarya', 'Kundali'];
+        const SKU_DISPLAY = {
+            '15 mins': '15 Min Consultation',
+            '30 mins': '30 Min Consultation',
+            '60 mins': '60 Min Consultation',
+            'Prashna': 'Prashna',
+            'ShubhKarya': 'ShubhKarya',
+            'Kundali': 'Handwritten Kundali'
+        };
+
+        // --- File Upload Handlers ---
+        function setupDropZone(zoneId, fileId, handler) {
+            const zone = document.getElementById(zoneId);
+            const fileInput = document.getElementById(fileId);
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handler(e.dataTransfer.files[0]);
+                }
+            });
+            fileInput.addEventListener('change', e => { if (e.target.files.length) handler(e.target.files[0]); });
+        }
+
+        function readExcel(file, callback) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(ws);
+                callback(json);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- DB File ---
+        setupDropZone('dbZone', 'dbFile', file => {
+            document.getElementById('dbFileName').textContent = file.name;
+            document.getElementById('dbZone').classList.add('uploaded');
+            readExcel(file, data => {
+                partnerDB = data.map(row => {
+                    const cols = Object.keys(row);
+                    return {
+                        name: row[cols[0]] || '',
+                        details: row[cols[1]] || '',
+                        prices: {
+                            '15 mins': parseFloat(row[cols[2]]) || 0,
+                            '30 mins': parseFloat(row[cols[3]]) || 0,
+                            '60 mins': parseFloat(row[cols[4]]) || 0,
+                            'Prashna': parseFloat(row[cols[5]]) || 0,
+                            'ShubhKarya': parseFloat(row[cols[6]]) || 0,
+                            'Kundali': parseFloat(row[cols[7]]) || 0
+                        }
+                    };
+                });
+                renderDBPreview();
+                updatePartnerDropdown();
+                checkReady();
+            });
+        });
+
+        // --- Orders File ---
+        setupDropZone('ordersZone', 'ordersFile', file => {
+            document.getElementById('ordersFileName').textContent = file.name;
+            document.getElementById('ordersZone').classList.add('uploaded');
+            readExcel(file, data => {
+                ordersData = data.map(row => {
+                    const cols = Object.keys(row);
+                    return {
+                        name: row[cols[0]] || '',
+                        counts: {
+                            '15 mins': parseInt(row[cols[1]]) || 0,
+                            '30 mins': parseInt(row[cols[2]]) || 0,
+                            '60 mins': parseInt(row[cols[3]]) || 0,
+                            'Prashna': parseInt(row[cols[4]]) || 0,
+                            'ShubhKarya': parseInt(row[cols[5]]) || 0,
+                            'Kundali': parseInt(row[cols[6]]) || 0
+                        }
+                    };
+                });
+                renderOrdersPreview();
+                checkReady();
+            });
+        });
+
+        function renderDBPreview() {
+            const el = document.getElementById('dbPreview');
+            if (!partnerDB.length) { el.innerHTML = ''; return; }
+            let html = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prashna</th><th>ShubhKarya</th><th>Kundali</th></tr>';
+            partnerDB.forEach(p => {
+                html += `<tr><td>${p.name}</td>`;
+                SKU_KEYS.forEach(k => { html += `<td>${p.prices[k]}</td>`; });
+                html += '</tr>';
+            });
+            html += '</table>';
+            el.innerHTML = html;
+        }
+
+        function renderOrdersPreview() {
+            const el = document.getElementById('ordersPreview');
+            if (!ordersData.length) { el.innerHTML = ''; return; }
+            let html = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prashna</th><th>ShubhKarya</th><th>Kundali</th></tr>';
+            ordersData.forEach(o => {
+                html += `<tr><td>${o.name}</td>`;
+                SKU_KEYS.forEach(k => { html += `<td>${o.counts[k]}</td>`; });
+                html += '</tr>';
+            });
+            html += '</table>';
+            el.innerHTML = html;
+        }
+
+        function updatePartnerDropdown() {
+            const sel = document.getElementById('addPartnerSelect');
+            sel.innerHTML = '<option value="">Select Partner</option>';
+            const names = new Set();
+            partnerDB.forEach(p => names.add(p.name));
+            ordersData.forEach(o => names.add(o.name));
+            [...names].sort().forEach(n => {
+                sel.innerHTML += `<option value="${n}">${n}</option>`;
+            });
+        }
+
+        // --- Additional Payments ---
+        function addAdditionalPayment() {
+            const partner = document.getElementById('addPartnerSelect').value;
+            const amount = parseFloat(document.getElementById('addAmount').value);
+            const reason = document.getElementById('addReason').value.trim();
+            if (!partner) { alert('Select a partner'); return; }
+            if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+            if (!reason) { alert('Enter a reason'); return; }
+            additionalPayments.push({ partner, amount, reason });
+            document.getElementById('addAmount').value = '';
+            document.getElementById('addReason').value = '';
+            renderAdditionalPayments();
+        }
+
+        function removeAdditionalPayment(idx) {
+            additionalPayments.splice(idx, 1);
+            renderAdditionalPayments();
+        }
+
+        function renderAdditionalPayments() {
+            const el = document.getElementById('additionalList');
+            if (!additionalPayments.length) { el.innerHTML = ''; return; }
+            el.innerHTML = additionalPayments.map((p, i) =>
+                `<div class="additional-item">
+                    <div class="info"><strong>${p.partner}</strong> &mdash; INR ${p.amount} &mdash; ${p.reason}</div>
+                    <span class="remove-btn" onclick="removeAdditionalPayment(${i})">&#10005;</span>
+                </div>`
+            ).join('');
+        }
+
+        function checkReady() {
+            const ready = partnerDB.length > 0;
+            document.getElementById('generateBtn').disabled = !ready;
+            updatePartnerDropdown();
+        }
+
+        // --- Date formatting ---
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}-${mm}-${yyyy}`;
+        }
+
+        function todayFormatted() {
+            return formatDate(new Date().toISOString().split('T')[0]);
+        }
+
+        // --- Invoice PDF Generation ---
+        function generateInvoicePDF(partnerName, details, lineItems, additionalItems, weekFrom, weekTo) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            let y = 25;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+
+            // Header details
+            const detailLines = (details || '').split('\n').filter(l => l.trim());
+            doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
+            doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
+
+            doc.setFont('helvetica', 'bold');
+            detailLines.forEach(line => {
+                doc.text(line.trim(), 20, y);
+                y += 7;
+            });
+
+            doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
+            y += 14;
+
+            // Table
+            const tableBody = [];
+            let totalAmount = 0;
+
+            lineItems.forEach(item => {
+                if (item.count > 0) {
+                    const amount = item.count * item.price;
+                    totalAmount += amount;
+                    tableBody.push([
+                        item.serviceType,
+                        String(item.count),
+                        String(item.price),
+                        String(amount)
+                    ]);
+                }
+            });
+
+            // Additional payments
+            additionalItems.forEach(item => {
+                totalAmount += item.amount;
+                tableBody.push([
+                    item.reason,
+                    '1',
+                    String(item.amount),
+                    String(item.amount)
+                ]);
+            });
+
+            doc.autoTable({
+                startY: y,
+                head: [['Service Type', 'Count', 'Price (Rs.)', 'Amount (Rs.)']],
+                body: tableBody,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [255, 255, 255],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    lineColor: [0, 0, 0],
+                    lineWidth: 0.3
+                },
+                bodyStyles: {
+                    textColor: [0, 0, 0],
+                    lineColor: [0, 0, 0],
+                    lineWidth: 0.3
+                },
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 5,
+                    font: 'helvetica'
+                },
+                columnStyles: {
+                    0: { cellWidth: 55 },
+                    1: { cellWidth: 30, halign: 'right' },
+                    2: { cellWidth: 40, halign: 'right' },
+                    3: { cellWidth: 40, halign: 'right' }
+                },
+                margin: { left: 20, right: 20 }
+            });
+
+            y = doc.lastAutoTable.finalY + 15;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(`Total Amount to be paid - INR ${totalAmount}/-`, 20, y);
+
+            return doc.output('arraybuffer');
+        }
+
+        // --- Generate All Invoices ---
+        async function generateInvoices() {
+            const weekFrom = document.getElementById('weekFrom').value;
+            const weekTo = document.getElementById('weekTo').value;
+            if (!weekFrom || !weekTo) {
+                showStatus('Please set the payment period dates.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            progressBar.style.display = 'block';
+
+            const zip = new JSZip();
+            const dbMap = {};
+            partnerDB.forEach(p => { dbMap[p.name.trim().toLowerCase()] = p; });
+
+            let generated = 0;
+            let skipped = [];
+            const total = ordersData.length || 1;
+
+            const dateStr = formatDate(weekTo).replace(/-/g, '');
+
+            for (let i = 0; i < ordersData.length; i++) {
+                const order = ordersData[i];
+                const key = order.name.trim().toLowerCase();
+                const partner = dbMap[key];
+
+                if (!partner) {
+                    skipped.push(order.name);
+                    progressFill.style.width = `${((i + 1) / total) * 100}%`;
+                    continue;
+                }
+
+                const partnerAdditional = additionalPayments.filter(
+                    a => a.partner.trim().toLowerCase() === key
+                );
+
+                // Kundali deduction: subtract kundali count from 15 min count
+                const kundaliCount = order.counts['Kundali'] || 0;
+                const adjusted15min = Math.max(0, (order.counts['15 mins'] || 0) - kundaliCount);
+
+                const lineItems = SKU_KEYS.map(k => ({
+                    serviceType: SKU_DISPLAY[k],
+                    count: k === '15 mins' ? adjusted15min : order.counts[k],
+                    price: partner.prices[k]
+                }));
+
+                const pdfBytes = generateInvoicePDF(
+                    partner.name,
+                    partner.details,
+                    lineItems,
+                    partnerAdditional,
+                    weekFrom,
+                    weekTo
+                );
+
+                const fileName = `${partner.name.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ /g, '_')}_${dateStr}.pdf`;
+                zip.file(fileName, pdfBytes);
+                generated++;
+                progressFill.style.width = `${((i + 1) / total) * 100}%`;
+
+                await new Promise(r => setTimeout(r, 10));
+            }
+
+            // Also generate invoices for partners who only have additional payments but are NOT in orders
+            const orderNames = new Set(ordersData.map(o => o.name.trim().toLowerCase()));
+            const additionalOnly = additionalPayments.filter(
+                a => !orderNames.has(a.partner.trim().toLowerCase())
+            );
+            const additionalOnlyPartners = [...new Set(additionalOnly.map(a => a.partner.trim().toLowerCase()))];
+            for (const key of additionalOnlyPartners) {
+                const partner = dbMap[key];
+                if (!partner) continue;
+                const partnerAdditional = additionalPayments.filter(
+                    a => a.partner.trim().toLowerCase() === key
+                );
+                const lineItems = SKU_KEYS.map(k => ({
+                    serviceType: SKU_DISPLAY[k],
+                    count: 0,
+                    price: partner.prices[k]
+                }));
+                const pdfBytes = generateInvoicePDF(
+                    partner.name, partner.details, lineItems, partnerAdditional, weekFrom, weekTo
+                );
+                const fileName = `${partner.name.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ /g, '_')}_${dateStr}.pdf`;
+                zip.file(fileName, pdfBytes);
+                generated++;
+            }
+
+            if (generated === 0) {
+                showStatus('No invoices generated. Check that partner names in orders match the database.', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Generate Invoices & Download ZIP';
+                progressBar.style.display = 'none';
+                return;
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `Invoices_${dateStr}.zip`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            let msg = `${generated} invoice(s) generated and downloaded.`;
+            if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
+            showStatus(msg, 'success');
+
+            btn.disabled = false;
+            btn.textContent = 'Generate Invoices & Download ZIP';
+            setTimeout(() => { progressBar.style.display = 'none'; }, 1000);
+        }
+
+        function showStatus(msg, type) {
+            const el = document.getElementById('statusMsg');
+            el.textContent = msg;
+            el.className = `status ${type}`;
+        }
+    </script>
+</body>
+</html>
