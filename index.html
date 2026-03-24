@@ -13,23 +13,31 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f6fa; color: #2d3436; min-height: 100vh; }
 
-        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 32px 0 28px; text-align: center; color: #fff; }
-        .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
-        .header p { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin-top: 6px; font-weight: 400; }
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 28px 0 0; text-align: center; color: #fff; }
+        .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.3px; }
+        .header p { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 4px; font-weight: 400; }
 
-        .container { max-width: 880px; margin: -16px auto 40px; padding: 0 20px; }
+        .tab-nav { display: flex; justify-content: center; gap: 0; margin-top: 20px; }
+        .tab-btn { padding: 10px 32px; font-size: 0.84rem; font-weight: 600; font-family: inherit; border: none; cursor: pointer; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); transition: all 0.2s; border-radius: 8px 8px 0 0; }
+        .tab-btn:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); }
+        .tab-btn.active { background: #f5f6fa; color: #1a1a2e; }
+
+        .container { max-width: 880px; margin: 0 auto 40px; padding: 0 20px; }
+
+        .tab-content { display: none; padding-top: 20px; }
+        .tab-content.active { display: block; }
 
         .card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #eef0f2; overflow: hidden; }
-        .card-title { font-size: 0.88rem; font-weight: 600; color: #1a1a2e; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-title { font-size: 0.84rem; font-weight: 600; color: #1a1a2e; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .upload-zone { border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafbfc; }
+        .upload-zone { border: 2px dashed #d1d5db; border-radius: 8px; padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafbfc; }
         .upload-zone:hover { border-color: #4a6cf7; background: #f4f6ff; }
         .upload-zone.dragover { border-color: #4a6cf7; background: #edf0ff; }
         .upload-zone.uploaded { border-color: #22c55e; background: #f0fdf4; border-style: solid; }
         .upload-zone input { display: none; }
-        .upload-zone .upload-label { font-size: 0.85rem; color: #6b7280; font-weight: 500; }
-        .upload-zone .upload-sublabel { font-size: 0.75rem; color: #9ca3af; margin-top: 4px; }
-        .file-name { color: #16a34a; font-weight: 600; font-size: 0.85rem; margin-top: 6px; }
+        .upload-zone .upload-label { font-size: 0.82rem; color: #6b7280; font-weight: 500; }
+        .upload-zone .upload-sublabel { font-size: 0.72rem; color: #9ca3af; margin-top: 3px; }
+        .file-name { color: #16a34a; font-weight: 600; font-size: 0.82rem; margin-top: 5px; }
 
         .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .row-2col .card { min-width: 0; overflow: hidden; }
@@ -41,19 +49,23 @@
         .partners-preview tr:nth-child(even) { background: #fafbfc; }
         .partners-preview th:first-child, .partners-preview td:first-child { width: 30%; }
 
-        @media (max-width: 700px) {
-            .row-2col { grid-template-columns: 1fr; }
-        }
+        .summary-preview { margin-top: 14px; overflow-x: auto; max-width: 100%; max-height: 300px; overflow-y: auto; }
+        .summary-preview table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .summary-preview th, .summary-preview td { padding: 6px 8px; border: 1px solid #e5e7eb; text-align: left; }
+        .summary-preview th { background: #f8f9fa; font-weight: 600; color: #374151; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; position: sticky; top: 0; }
+        .summary-preview tr:nth-child(even) { background: #fafbfc; }
+
+        @media (max-width: 700px) { .row-2col { grid-template-columns: 1fr; } }
 
         .period-row { display: flex; gap: 16px; align-items: center; }
         .period-row label { font-size: 0.82rem; font-weight: 500; color: #4b5563; }
         .period-row input[type="date"] { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; color: #374151; }
 
-        .payment-form { display: flex; gap: 10px; align-items: center; }
+        .payment-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .payment-form select, .payment-form input { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; color: #374151; }
-        .payment-form select { flex: 2; background: #fff; }
-        .payment-form input[type="number"] { flex: 1; }
-        .payment-form input[type="text"] { flex: 2; }
+        .payment-form select { flex: 2; min-width: 140px; background: #fff; }
+        .payment-form input[type="number"] { flex: 1; min-width: 100px; }
+        .payment-form input[type="text"] { flex: 2; min-width: 140px; }
 
         .btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; font-family: inherit; transition: all 0.15s; }
         .btn-add { background: #4a6cf7; color: #fff; }
@@ -77,469 +89,708 @@
         .status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
         .status.info { display: block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
 
-        .empty-state { text-align: center; color: #9ca3af; font-size: 0.8rem; padding: 8px 0; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 6px; }
+        .badge-ok { background: #dcfce7; color: #166534; }
+        .badge-warn { background: #fef3c7; color: #92400e; }
+        .badge-count { background: #e0e7ff; color: #3730a3; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Dharmayana Invoice Generator</h1>
         <p>Partner payment processing & invoice generation</p>
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('astrology')">Astrology</button>
+            <button class="tab-btn" onclick="switchTab('pooja')">Pooja</button>
+        </div>
     </div>
 
     <div class="container">
-        <div class="row-2col">
-            <div class="card">
-                <div class="card-title">Partner Details</div>
-                <div class="upload-zone" id="dbZone" onclick="document.getElementById('dbFile').click()">
-                    <input type="file" id="dbFile" accept=".xlsx,.xls,.csv">
-                    <div class="upload-label">Upload Partner Details Sheet</div>
-                    <div class="upload-sublabel">.xlsx, .xls, .csv</div>
-                    <div class="file-name" id="dbFileName"></div>
+
+        <!-- ===================== ASTROLOGY TAB ===================== -->
+        <div class="tab-content active" id="tab-astrology">
+            <div class="row-2col">
+                <div class="card">
+                    <div class="card-title">Partner Details</div>
+                    <div class="upload-zone" id="a-dbZone" onclick="document.getElementById('a-dbFile').click()">
+                        <input type="file" id="a-dbFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Partner Details Sheet</div>
+                        <div class="upload-sublabel">.xlsx, .xls, .csv</div>
+                        <div class="file-name" id="a-dbFileName"></div>
+                    </div>
+                    <div class="partners-preview" id="a-dbPreview"></div>
                 </div>
-                <div class="partners-preview" id="dbPreview"></div>
+                <div class="card">
+                    <div class="card-title">Orders Sheet</div>
+                    <div class="upload-zone" id="a-ordersZone" onclick="document.getElementById('a-ordersFile').click()">
+                        <input type="file" id="a-ordersFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Weekly Orders</div>
+                        <div class="upload-sublabel">.xlsx, .xls, .csv</div>
+                        <div class="file-name" id="a-ordersFileName"></div>
+                    </div>
+                    <div class="partners-preview" id="a-ordersPreview"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Payment Period</div>
+                <div class="period-row">
+                    <label>From</label> <input type="date" id="a-weekFrom">
+                    <label>To</label> <input type="date" id="a-weekTo">
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Additional Payments</div>
+                <div class="payment-form">
+                    <select id="a-addPartnerSelect"><option value="">Select Partner</option></select>
+                    <input type="number" id="a-addAmount" placeholder="Amount" min="0">
+                    <input type="text" id="a-addReason" placeholder="Reason">
+                    <button class="btn btn-add" onclick="astro.addPayment()">Add</button>
+                </div>
+                <div class="additional-list" id="a-additionalList"></div>
+            </div>
+            <div class="card">
+                <div class="generate-section">
+                    <button class="btn btn-generate" id="a-generateBtn" onclick="astro.generate()" disabled>Generate Invoices & Download ZIP</button>
+                    <div class="progress-bar" id="a-progressBar"><div class="fill" id="a-progressFill"></div></div>
+                    <div class="status" id="a-statusMsg"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== POOJA TAB ===================== -->
+        <div class="tab-content" id="tab-pooja">
+            <div class="row-2col">
+                <div class="card">
+                    <div class="card-title">Partner Details <span class="badge badge-count" id="p-dbCount"></span></div>
+                    <div class="upload-zone" id="p-dbZone" onclick="document.getElementById('p-dbFile').click()">
+                        <input type="file" id="p-dbFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Partner Details</div>
+                        <div class="upload-sublabel">Sheet 1: Info &bull; Sheet 2: Key, Members, Prices</div>
+                        <div class="file-name" id="p-dbFileName"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Orders <span class="badge badge-count" id="p-ordersCount"></span></div>
+                    <div class="upload-zone" id="p-ordersZone" onclick="document.getElementById('p-ordersFile').click()">
+                        <input type="file" id="p-ordersFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Orders Sheet</div>
+                        <div class="upload-sublabel">supply_name, order_display_id, product_id</div>
+                        <div class="file-name" id="p-ordersFileName"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row-2col">
+                <div class="card">
+                    <div class="card-title">Pooja Variants <span class="badge badge-count" id="p-variantsCount"></span></div>
+                    <div class="upload-zone" id="p-variantsZone" onclick="document.getElementById('p-variantsFile').click()">
+                        <input type="file" id="p-variantsFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Variants Sheet</div>
+                        <div class="upload-sublabel">ID, Member Count, Pooja Key</div>
+                        <div class="file-name" id="p-variantsFileName"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Pooja Catalogue <span class="badge badge-count" id="p-catalogueCount"></span></div>
+                    <div class="upload-zone" id="p-catalogueZone" onclick="document.getElementById('p-catalogueFile').click()">
+                        <input type="file" id="p-catalogueFile" accept=".xlsx,.xls,.csv">
+                        <div class="upload-label">Upload Catalogue Sheet</div>
+                        <div class="upload-sublabel">ID, Key</div>
+                        <div class="file-name" id="p-catalogueFileName"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resolved orders summary -->
+            <div class="card" id="p-summaryCard" style="display:none;">
+                <div class="card-title">Resolved Orders Summary</div>
+                <div class="summary-preview" id="p-summaryPreview"></div>
             </div>
 
             <div class="card">
-                <div class="card-title">Orders Sheet</div>
-                <div class="upload-zone" id="ordersZone" onclick="document.getElementById('ordersFile').click()">
-                    <input type="file" id="ordersFile" accept=".xlsx,.xls,.csv">
-                    <div class="upload-label">Upload Weekly Orders</div>
-                    <div class="upload-sublabel">.xlsx, .xls, .csv</div>
-                    <div class="file-name" id="ordersFileName"></div>
+                <div class="card-title">Payment Period</div>
+                <div class="period-row">
+                    <label>From</label> <input type="date" id="p-weekFrom">
+                    <label>To</label> <input type="date" id="p-weekTo">
                 </div>
-                <div class="partners-preview" id="ordersPreview"></div>
             </div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Payment Period</div>
-            <div class="period-row">
-                <label>From</label>
-                <input type="date" id="weekFrom">
-                <label>To</label>
-                <input type="date" id="weekTo">
+            <div class="card">
+                <div class="card-title">Additional Payments</div>
+                <div class="payment-form">
+                    <select id="p-addPartnerSelect"><option value="">Select Partner</option></select>
+                    <input type="number" id="p-addAmount" placeholder="Amount" min="0">
+                    <input type="text" id="p-addReason" placeholder="Reason">
+                    <button class="btn btn-add" onclick="pooja.addPayment()">Add</button>
+                </div>
+                <div class="additional-list" id="p-additionalList"></div>
             </div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Additional Payments</div>
-            <div class="payment-form">
-                <select id="addPartnerSelect">
-                    <option value="">Select Partner</option>
-                </select>
-                <input type="number" id="addAmount" placeholder="Amount" min="0">
-                <input type="text" id="addReason" placeholder="Reason">
-                <button class="btn btn-add" onclick="addAdditionalPayment()">Add</button>
-            </div>
-            <div class="additional-list" id="additionalList"></div>
-        </div>
-
-        <div class="card">
-            <div class="generate-section">
-                <button class="btn btn-generate" id="generateBtn" onclick="generateInvoices()" disabled>
-                    Generate Invoices & Download ZIP
-                </button>
-                <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
-                <div class="status" id="statusMsg"></div>
+            <div class="card">
+                <div class="generate-section">
+                    <button class="btn btn-generate" id="p-generateBtn" onclick="pooja.generate()" disabled>Generate Invoices & Download ZIP</button>
+                    <div class="progress-bar" id="p-progressBar"><div class="fill" id="p-progressFill"></div></div>
+                    <div class="status" id="p-statusMsg"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        let partnerDB = [];
-        let ordersData = [];
-        let additionalPayments = [];
+<script>
+// ==================== SHARED UTILITIES ====================
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelector(`.tab-btn[onclick*="${tab}"]`).classList.add('active');
+}
 
-        const SKU_KEYS = ['15 mins', '30 mins', '60 mins', 'Prashna', 'ShubhKarya', 'Kundali'];
-        const SKU_DISPLAY = {
-            '15 mins': '15 Min Consultation',
-            '30 mins': '30 Min Consultation',
-            '60 mins': '60 Min Consultation',
-            'Prashna': 'Prashna',
-            'ShubhKarya': 'ShubhKarya',
-            'Kundali': 'Handwritten Kundali'
-        };
+function setupDropZone(zoneId, fileId, handler) {
+    const zone = document.getElementById(zoneId);
+    const fileInput = document.getElementById(fileId);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; handler(e.dataTransfer.files[0]); }
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files.length) handler(e.target.files[0]); });
+}
 
-        // --- File Upload Handlers ---
-        function setupDropZone(zoneId, fileId, handler) {
-            const zone = document.getElementById(zoneId);
-            const fileInput = document.getElementById(fileId);
-            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-            zone.addEventListener('drop', e => {
-                e.preventDefault();
-                zone.classList.remove('dragover');
-                if (e.dataTransfer.files.length) {
-                    fileInput.files = e.dataTransfer.files;
-                    handler(e.dataTransfer.files[0]);
+function readExcel(file, callback, allSheets) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        if (allSheets) {
+            const sheets = {};
+            wb.SheetNames.forEach(sn => { sheets[sn] = XLSX.utils.sheet_to_json(wb.Sheets[sn]); });
+            callback(sheets);
+        } else {
+            callback(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+}
+function todayFormatted() { return formatDate(new Date().toISOString().split('T')[0]); }
+
+function showStatus(elId, msg, type) {
+    const el = document.getElementById(elId);
+    el.textContent = msg; el.className = `status ${type}`;
+}
+
+function sanitizeFileName(name) {
+    return name.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ +/g, '_');
+}
+
+function formatKeyDisplay(key) {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/ - /g, ' - ').replace(/ – /g, ' – ');
+}
+
+// Shared PDF generation
+function generatePDF(partnerName, details, tableRows, additionalItems, weekFrom, weekTo) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 25;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+
+    const detailLines = (details || '').split('\n').filter(l => l.trim());
+    doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
+    doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
+    detailLines.forEach(line => { doc.text(line.trim(), 20, y); y += 7; });
+    doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
+    y += 14;
+
+    const tableBody = [];
+    let totalAmount = 0;
+
+    tableRows.forEach(item => {
+        if (item.count > 0) {
+            const amount = item.count * item.price;
+            totalAmount += amount;
+            tableBody.push([item.serviceType, String(item.count), String(item.price), String(amount)]);
+        }
+    });
+
+    additionalItems.forEach(item => {
+        totalAmount += item.amount;
+        tableBody.push([item.reason, '1', String(item.amount), String(item.amount)]);
+    });
+
+    if (tableBody.length === 0) {
+        return null; // nothing to invoice
+    }
+
+    doc.autoTable({
+        startY: y,
+        head: [['Service Type', 'Count', 'Price (Rs.)', 'Amount (Rs.)']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', lineColor: [0,0,0], lineWidth: 0.3 },
+        bodyStyles: { textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3 },
+        styles: { fontSize: 10, cellPadding: 5, font: 'helvetica' },
+        columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 25, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' }, 3: { cellWidth: 35, halign: 'right' } },
+        margin: { left: 20, right: 20 }
+    });
+
+    y = doc.lastAutoTable.finalY + 15;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(`Total Amount to be paid - INR ${totalAmount}/-`, 20, y);
+
+    return doc.output('arraybuffer');
+}
+
+// ==================== ASTROLOGY MODULE ====================
+const astro = (() => {
+    let partnerDB = [], ordersData = [], additionalPayments = [];
+    const SKU_KEYS = ['15 mins','30 mins','60 mins','Prashna','ShubhKarya','Kundali'];
+    const SKU_DISPLAY = { '15 mins':'15 Min Consultation','30 mins':'30 Min Consultation','60 mins':'60 Min Consultation','Prashna':'Prashna','ShubhKarya':'ShubhKarya','Kundali':'Handwritten Kundali' };
+
+    setupDropZone('a-dbZone', 'a-dbFile', file => {
+        document.getElementById('a-dbFileName').textContent = file.name;
+        document.getElementById('a-dbZone').classList.add('uploaded');
+        readExcel(file, data => {
+            partnerDB = data.map(row => {
+                const c = Object.keys(row);
+                return { name: row[c[0]]||'', details: row[c[1]]||'', prices: { '15 mins':parseFloat(row[c[2]])||0, '30 mins':parseFloat(row[c[3]])||0, '60 mins':parseFloat(row[c[4]])||0, 'Prashna':parseFloat(row[c[5]])||0, 'ShubhKarya':parseFloat(row[c[6]])||0, 'Kundali':parseFloat(row[c[7]])||0 } };
+            });
+            renderPreview(); updateDropdown(); checkReady();
+        });
+    });
+
+    setupDropZone('a-ordersZone', 'a-ordersFile', file => {
+        document.getElementById('a-ordersFileName').textContent = file.name;
+        document.getElementById('a-ordersZone').classList.add('uploaded');
+        readExcel(file, data => {
+            ordersData = data.map(row => {
+                const c = Object.keys(row);
+                return { name: row[c[0]]||'', counts: { '15 mins':parseInt(row[c[1]])||0, '30 mins':parseInt(row[c[2]])||0, '60 mins':parseInt(row[c[3]])||0, 'Prashna':parseInt(row[c[4]])||0, 'ShubhKarya':parseInt(row[c[5]])||0, 'Kundali':parseInt(row[c[6]])||0 } };
+            });
+            renderOrdersPreview(); checkReady();
+        });
+    });
+
+    function renderPreview() {
+        const el = document.getElementById('a-dbPreview');
+        if (!partnerDB.length) { el.innerHTML = ''; return; }
+        let h = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prsh</th><th>Shubh</th><th>Kndli</th></tr>';
+        partnerDB.forEach(p => { h += `<tr><td>${p.name}</td>`; SKU_KEYS.forEach(k => h += `<td>${p.prices[k]}</td>`); h += '</tr>'; });
+        el.innerHTML = h + '</table>';
+    }
+
+    function renderOrdersPreview() {
+        const el = document.getElementById('a-ordersPreview');
+        if (!ordersData.length) { el.innerHTML = ''; return; }
+        let h = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prsh</th><th>Shubh</th><th>Kndli</th></tr>';
+        ordersData.forEach(o => { h += `<tr><td>${o.name}</td>`; SKU_KEYS.forEach(k => h += `<td>${o.counts[k]}</td>`); h += '</tr>'; });
+        el.innerHTML = h + '</table>';
+    }
+
+    function updateDropdown() {
+        const sel = document.getElementById('a-addPartnerSelect');
+        sel.innerHTML = '<option value="">Select Partner</option>';
+        const names = new Set();
+        partnerDB.forEach(p => names.add(p.name));
+        ordersData.forEach(o => names.add(o.name));
+        [...names].sort().forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
+    }
+
+    function checkReady() {
+        document.getElementById('a-generateBtn').disabled = partnerDB.length === 0;
+        updateDropdown();
+    }
+
+    function addPayment() {
+        const partner = document.getElementById('a-addPartnerSelect').value;
+        const amount = parseFloat(document.getElementById('a-addAmount').value);
+        const reason = document.getElementById('a-addReason').value.trim();
+        if (!partner) { alert('Select a partner'); return; }
+        if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+        if (!reason) { alert('Enter a reason'); return; }
+        additionalPayments.push({ partner, amount, reason });
+        document.getElementById('a-addAmount').value = '';
+        document.getElementById('a-addReason').value = '';
+        renderPayments();
+    }
+
+    function renderPayments() {
+        const el = document.getElementById('a-additionalList');
+        if (!additionalPayments.length) { el.innerHTML = ''; return; }
+        el.innerHTML = additionalPayments.map((p,i) =>
+            `<div class="additional-item"><div class="info"><strong>${p.partner}</strong> &mdash; INR ${p.amount} &mdash; ${p.reason}</div><span class="remove-btn" onclick="astro.removePayment(${i})">&#10005;</span></div>`
+        ).join('');
+    }
+
+    function removePayment(idx) { additionalPayments.splice(idx,1); renderPayments(); }
+
+    async function generate() {
+        const weekFrom = document.getElementById('a-weekFrom').value;
+        const weekTo = document.getElementById('a-weekTo').value;
+        if (!weekFrom || !weekTo) { showStatus('a-statusMsg','Please set the payment period dates.','error'); return; }
+
+        const btn = document.getElementById('a-generateBtn');
+        btn.disabled = true; btn.textContent = 'Generating...';
+        const pBar = document.getElementById('a-progressBar');
+        const pFill = document.getElementById('a-progressFill');
+        pBar.style.display = 'block';
+
+        const zip = new JSZip();
+        const dbMap = {}; partnerDB.forEach(p => { dbMap[p.name.trim().toLowerCase()] = p; });
+        let generated = 0, skipped = [];
+        const dateStr = formatDate(weekTo).replace(/-/g, '');
+        const total = ordersData.length || 1;
+
+        for (let i = 0; i < ordersData.length; i++) {
+            const order = ordersData[i];
+            const key = order.name.trim().toLowerCase();
+            const partner = dbMap[key];
+            if (!partner) { skipped.push(order.name); pFill.style.width = `${((i+1)/total)*100}%`; continue; }
+
+            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
+            const kundaliCount = order.counts['Kundali'] || 0;
+            const adj15 = Math.max(0, (order.counts['15 mins']||0) - kundaliCount);
+
+            const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
+            const pdf = generatePDF(partner.name, partner.details, lineItems, partnerAdd, weekFrom, weekTo);
+            if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
+            pFill.style.width = `${((i+1)/total)*100}%`;
+            await new Promise(r => setTimeout(r, 10));
+        }
+
+        // Additional-only partners
+        const orderNames = new Set(ordersData.map(o => o.name.trim().toLowerCase()));
+        const addOnlyKeys = [...new Set(additionalPayments.filter(a => !orderNames.has(a.partner.trim().toLowerCase())).map(a => a.partner.trim().toLowerCase()))];
+        for (const key of addOnlyKeys) {
+            const partner = dbMap[key]; if (!partner) continue;
+            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
+            const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
+            const pdf = generatePDF(partner.name, partner.details, lineItems, partnerAdd, weekFrom, weekTo);
+            if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
+        }
+
+        if (generated === 0) { showStatus('a-statusMsg','No invoices generated.','error'); btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP'; pBar.style.display='none'; return; }
+        const content = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Astrology_Invoices_${dateStr}.zip`; link.click();
+        let msg = `${generated} invoice(s) generated.`; if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
+        showStatus('a-statusMsg', msg, 'success');
+        btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP';
+        setTimeout(() => { pBar.style.display='none'; }, 1000);
+    }
+
+    return { addPayment, removePayment, generate };
+})();
+
+// ==================== POOJA MODULE ====================
+const pooja = (() => {
+    let partnerInfo = {};   // { name_lower: { name, details } }
+    let partnerPricing = {}; // { name_lower: { pooja_key: { 1: price, 2: price, 4: price } } }
+    let ordersRaw = [];     // [{ temple, orderId, productId }]
+    let variantMap = {};    // { productId: { key, memberCount } }
+    let catalogueMap = {};  // { productId: key }
+    let resolvedData = {};  // { temple_lower: { 'key|mc': { key, mc, count, displayName } } }
+    let additionalPayments = [];
+    let allPartnerNames = new Set();
+
+    // --- Partner Details (two-sheet workbook) ---
+    setupDropZone('p-dbZone', 'p-dbFile', file => {
+        document.getElementById('p-dbFileName').textContent = file.name;
+        document.getElementById('p-dbZone').classList.add('uploaded');
+        readExcel(file, sheets => {
+            const sheetNames = Object.keys(sheets);
+
+            // Sheet 1: Partner info
+            const infoSheet = sheets[sheetNames[0]] || [];
+            partnerInfo = {};
+            infoSheet.forEach(row => {
+                const cols = Object.keys(row);
+                const name = String(row[cols[0]] || '').trim();
+                if (!name) return;
+                partnerInfo[name.toLowerCase()] = { name, details: String(row[cols[1]] || '') };
+            });
+
+            // Sheet 2: Pricing — rows are (Key, MemberCount), columns are temple names
+            const pricingSheet = sheets[sheetNames[1]] || [];
+            partnerPricing = {};
+            if (pricingSheet.length > 0) {
+                // Headers: first col = Key, second col = Member Count, rest = temple names
+                const headerCols = Object.keys(pricingSheet[0]);
+                const templeHeaders = headerCols.slice(2); // col index 2+ are temple names
+
+                pricingSheet.forEach(row => {
+                    const cols = Object.keys(row);
+                    const poojaKey = String(row[cols[0]] || '').trim().toLowerCase();
+                    const mc = parseInt(parseFloat(row[cols[1]])) || 1;
+                    if (!poojaKey) return;
+
+                    templeHeaders.forEach(thdr => {
+                        const templeName = String(thdr).trim().toLowerCase();
+                        const price = parseFloat(row[thdr]) || 0;
+                        if (!templeName || !price) return;
+                        if (!partnerPricing[templeName]) partnerPricing[templeName] = {};
+                        if (!partnerPricing[templeName][poojaKey]) partnerPricing[templeName][poojaKey] = {};
+                        partnerPricing[templeName][poojaKey][mc] = price;
+                    });
+                });
+            }
+
+            const partnerCount = Object.keys(partnerInfo).length;
+            document.getElementById('p-dbCount').textContent = `${partnerCount} partners`;
+            allPartnerNames = new Set(Object.values(partnerInfo).map(p => p.name));
+            updateDropdown(); checkReady();
+        }, true);
+    });
+
+    // --- Orders ---
+    setupDropZone('p-ordersZone', 'p-ordersFile', file => {
+        document.getElementById('p-ordersFileName').textContent = file.name;
+        document.getElementById('p-ordersZone').classList.add('uploaded');
+        readExcel(file, data => {
+            ordersRaw = data.map(row => {
+                const c = Object.keys(row);
+                return { temple: String(row[c[0]]||'').trim(), orderId: String(row[c[1]]||''), productId: String(row[c[2]]||'') };
+            });
+            document.getElementById('p-ordersCount').textContent = `${ordersRaw.length} orders`;
+            ordersRaw.forEach(o => allPartnerNames.add(o.temple));
+            updateDropdown(); resolveOrders(); checkReady();
+        });
+    });
+
+    // --- Variants ---
+    setupDropZone('p-variantsZone', 'p-variantsFile', file => {
+        document.getElementById('p-variantsFileName').textContent = file.name;
+        document.getElementById('p-variantsZone').classList.add('uploaded');
+        readExcel(file, data => {
+            variantMap = {};
+            data.forEach(row => {
+                const c = Object.keys(row);
+                const pid = String(row[c[0]]||'').trim();
+                const mc = parseInt(parseFloat(row[c[1]])) || 1;
+                const key = String(row[c[2]]||'').trim().toLowerCase();
+                if (pid && key && key !== 'none') {
+                    variantMap[pid] = { key, memberCount: mc };
                 }
             });
-            fileInput.addEventListener('change', e => { if (e.target.files.length) handler(e.target.files[0]); });
-        }
+            document.getElementById('p-variantsCount').textContent = `${Object.keys(variantMap).length} entries`;
+            resolveOrders(); checkReady();
+        });
+    });
 
-        function readExcel(file, callback) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                const data = new Uint8Array(e.target.result);
-                const wb = XLSX.read(data, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(ws);
-                callback(json);
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        // --- DB File ---
-        setupDropZone('dbZone', 'dbFile', file => {
-            document.getElementById('dbFileName').textContent = file.name;
-            document.getElementById('dbZone').classList.add('uploaded');
-            readExcel(file, data => {
-                partnerDB = data.map(row => {
-                    const cols = Object.keys(row);
-                    return {
-                        name: row[cols[0]] || '',
-                        details: row[cols[1]] || '',
-                        prices: {
-                            '15 mins': parseFloat(row[cols[2]]) || 0,
-                            '30 mins': parseFloat(row[cols[3]]) || 0,
-                            '60 mins': parseFloat(row[cols[4]]) || 0,
-                            'Prashna': parseFloat(row[cols[5]]) || 0,
-                            'ShubhKarya': parseFloat(row[cols[6]]) || 0,
-                            'Kundali': parseFloat(row[cols[7]]) || 0
-                        }
-                    };
-                });
-                renderDBPreview();
-                updatePartnerDropdown();
-                checkReady();
+    // --- Catalogue ---
+    setupDropZone('p-catalogueZone', 'p-catalogueFile', file => {
+        document.getElementById('p-catalogueFileName').textContent = file.name;
+        document.getElementById('p-catalogueZone').classList.add('uploaded');
+        readExcel(file, data => {
+            catalogueMap = {};
+            data.forEach(row => {
+                const c = Object.keys(row);
+                const pid = String(row[c[0]]||'').trim();
+                const key = String(row[c[1]]||'').trim().toLowerCase();
+                if (pid && key) catalogueMap[pid] = key;
             });
+            document.getElementById('p-catalogueCount').textContent = `${Object.keys(catalogueMap).length} entries`;
+            resolveOrders(); checkReady();
+        });
+    });
+
+    // --- Core logic: resolve orders ---
+    function resolveOrders() {
+        if (!ordersRaw.length || (!Object.keys(variantMap).length && !Object.keys(catalogueMap).length)) {
+            resolvedData = {};
+            document.getElementById('p-summaryCard').style.display = 'none';
+            return;
+        }
+
+        resolvedData = {};
+        let resolved = 0;
+        let unresolvedOrders = []; // { temple, orderId, productId }
+
+        ordersRaw.forEach(order => {
+            const pid = order.productId;
+            let key = null, mc = 1;
+
+            if (variantMap[pid]) {
+                key = variantMap[pid].key;
+                mc = variantMap[pid].memberCount;
+            } else if (catalogueMap[pid]) {
+                key = catalogueMap[pid];
+                mc = 1;
+            }
+
+            if (!key) { unresolvedOrders.push(order); return; }
+
+            const tKey = order.temple.toLowerCase();
+            if (!resolvedData[tKey]) resolvedData[tKey] = {};
+            const itemKey = `${key}|${mc}`;
+            if (!resolvedData[tKey][itemKey]) {
+                resolvedData[tKey][itemKey] = { key, mc, count: 0 };
+            }
+            resolvedData[tKey][itemKey].count++;
+            resolved++;
         });
 
-        // --- Orders File ---
-        setupDropZone('ordersZone', 'ordersFile', file => {
-            document.getElementById('ordersFileName').textContent = file.name;
-            document.getElementById('ordersZone').classList.add('uploaded');
-            readExcel(file, data => {
-                ordersData = data.map(row => {
-                    const cols = Object.keys(row);
-                    return {
-                        name: row[cols[0]] || '',
-                        counts: {
-                            '15 mins': parseInt(row[cols[1]]) || 0,
-                            '30 mins': parseInt(row[cols[2]]) || 0,
-                            '60 mins': parseInt(row[cols[3]]) || 0,
-                            'Prashna': parseInt(row[cols[4]]) || 0,
-                            'ShubhKarya': parseInt(row[cols[5]]) || 0,
-                            'Kundali': parseInt(row[cols[6]]) || 0
-                        }
-                    };
-                });
-                renderOrdersPreview();
-                checkReady();
+        renderSummary(resolved, unresolvedOrders);
+    }
+
+    function renderSummary(resolved, unresolvedOrders) {
+        const card = document.getElementById('p-summaryCard');
+        const el = document.getElementById('p-summaryPreview');
+        if (!Object.keys(resolvedData).length && !unresolvedOrders.length) { card.style.display = 'none'; return; }
+        card.style.display = 'block';
+
+        let html = `<div style="font-size:0.78rem;margin-bottom:8px;color:#4b5563;">
+            <span class="badge badge-ok">${resolved} resolved</span>
+            ${unresolvedOrders.length > 0 ? `<span class="badge badge-warn">${unresolvedOrders.length} unresolved</span>` : ''}
+        </div>`;
+        html += '<table><tr><th>Temple</th><th>Pooja</th><th>Members</th><th>Orders</th></tr>';
+
+        Object.keys(resolvedData).sort().forEach(tKey => {
+            const temple = ordersRaw.find(o => o.temple.toLowerCase() === tKey)?.temple || tKey;
+            const items = Object.values(resolvedData[tKey]).sort((a,b) => a.key.localeCompare(b.key));
+            items.forEach((item, idx) => {
+                html += `<tr><td>${idx===0 ? temple : ''}</td><td>${formatKeyDisplay(item.key)}</td><td>${item.mc}</td><td>${item.count}</td></tr>`;
             });
         });
+        html += '</table>';
 
-        function renderDBPreview() {
-            const el = document.getElementById('dbPreview');
-            if (!partnerDB.length) { el.innerHTML = ''; return; }
-            let html = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prashna</th><th>ShubhKarya</th><th>Kundali</th></tr>';
-            partnerDB.forEach(p => {
-                html += `<tr><td>${p.name}</td>`;
-                SKU_KEYS.forEach(k => { html += `<td>${p.prices[k]}</td>`; });
-                html += '</tr>';
+        if (unresolvedOrders.length > 0) {
+            html += `<div style="margin-top:14px;font-size:0.78rem;font-weight:600;color:#92400e;">Unresolved Orders</div>`;
+            html += '<table style="margin-top:6px;"><tr><th>Temple</th><th>Order ID</th><th>Product ID</th></tr>';
+            unresolvedOrders.forEach(o => {
+                html += `<tr><td>${o.temple}</td><td>${o.orderId}</td><td style="font-size:0.68rem;">${o.productId}</td></tr>`;
             });
             html += '</table>';
-            el.innerHTML = html;
         }
 
-        function renderOrdersPreview() {
-            const el = document.getElementById('ordersPreview');
-            if (!ordersData.length) { el.innerHTML = ''; return; }
-            let html = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prashna</th><th>ShubhKarya</th><th>Kundali</th></tr>';
-            ordersData.forEach(o => {
-                html += `<tr><td>${o.name}</td>`;
-                SKU_KEYS.forEach(k => { html += `<td>${o.counts[k]}</td>`; });
-                html += '</tr>';
-            });
-            html += '</table>';
-            el.innerHTML = html;
+        el.innerHTML = html;
+    }
+
+    function updateDropdown() {
+        const sel = document.getElementById('p-addPartnerSelect');
+        sel.innerHTML = '<option value="">Select Partner</option>';
+        [...allPartnerNames].sort().forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
+    }
+
+    function checkReady() {
+        const hasData = Object.keys(resolvedData).length > 0 || additionalPayments.length > 0;
+        const hasDB = Object.keys(partnerInfo).length > 0;
+        document.getElementById('p-generateBtn').disabled = !(hasData && hasDB);
+    }
+
+    function addPayment() {
+        const partner = document.getElementById('p-addPartnerSelect').value;
+        const amount = parseFloat(document.getElementById('p-addAmount').value);
+        const reason = document.getElementById('p-addReason').value.trim();
+        if (!partner) { alert('Select a partner'); return; }
+        if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+        if (!reason) { alert('Enter a reason'); return; }
+        additionalPayments.push({ partner, amount, reason });
+        document.getElementById('p-addAmount').value = '';
+        document.getElementById('p-addReason').value = '';
+        renderPayments(); checkReady();
+    }
+
+    function removePayment(idx) { additionalPayments.splice(idx,1); renderPayments(); checkReady(); }
+
+    function renderPayments() {
+        const el = document.getElementById('p-additionalList');
+        if (!additionalPayments.length) { el.innerHTML = ''; return; }
+        el.innerHTML = additionalPayments.map((p,i) =>
+            `<div class="additional-item"><div class="info"><strong>${p.partner}</strong> &mdash; INR ${p.amount} &mdash; ${p.reason}</div><span class="remove-btn" onclick="pooja.removePayment(${i})">&#10005;</span></div>`
+        ).join('');
+    }
+
+    // --- Price lookup: find the right variant price ---
+    function lookupPrice(partnerKey, poojaKey, memberCount) {
+        const pricing = partnerPricing[partnerKey];
+        if (!pricing || !pricing[poojaKey]) return 0;
+        const variants = pricing[poojaKey];
+
+        // Exact match first
+        if (variants[memberCount] !== undefined) return variants[memberCount];
+
+        // Find closest higher tier: available tiers are 1, 2, 4
+        const tiers = [1, 2, 4].sort((a, b) => a - b);
+        for (const t of tiers) {
+            if (t >= memberCount && variants[t] !== undefined) return variants[t];
         }
-
-        function updatePartnerDropdown() {
-            const sel = document.getElementById('addPartnerSelect');
-            sel.innerHTML = '<option value="">Select Partner</option>';
-            const names = new Set();
-            partnerDB.forEach(p => names.add(p.name));
-            ordersData.forEach(o => names.add(o.name));
-            [...names].sort().forEach(n => {
-                sel.innerHTML += `<option value="${n}">${n}</option>`;
-            });
+        // If none higher, use the highest available
+        for (const t of tiers.reverse()) {
+            if (variants[t] !== undefined) return variants[t];
         }
+        return 0;
+    }
 
-        // --- Additional Payments ---
-        function addAdditionalPayment() {
-            const partner = document.getElementById('addPartnerSelect').value;
-            const amount = parseFloat(document.getElementById('addAmount').value);
-            const reason = document.getElementById('addReason').value.trim();
-            if (!partner) { alert('Select a partner'); return; }
-            if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
-            if (!reason) { alert('Enter a reason'); return; }
-            additionalPayments.push({ partner, amount, reason });
-            document.getElementById('addAmount').value = '';
-            document.getElementById('addReason').value = '';
-            renderAdditionalPayments();
-        }
+    async function generate() {
+        const weekFrom = document.getElementById('p-weekFrom').value;
+        const weekTo = document.getElementById('p-weekTo').value;
+        if (!weekFrom || !weekTo) { showStatus('p-statusMsg','Please set the payment period dates.','error'); return; }
 
-        function removeAdditionalPayment(idx) {
-            additionalPayments.splice(idx, 1);
-            renderAdditionalPayments();
-        }
+        const btn = document.getElementById('p-generateBtn');
+        btn.disabled = true; btn.textContent = 'Generating...';
+        const pBar = document.getElementById('p-progressBar');
+        const pFill = document.getElementById('p-progressFill');
+        pBar.style.display = 'block';
 
-        function renderAdditionalPayments() {
-            const el = document.getElementById('additionalList');
-            if (!additionalPayments.length) { el.innerHTML = ''; return; }
-            el.innerHTML = additionalPayments.map((p, i) =>
-                `<div class="additional-item">
-                    <div class="info"><strong>${p.partner}</strong> &mdash; INR ${p.amount} &mdash; ${p.reason}</div>
-                    <span class="remove-btn" onclick="removeAdditionalPayment(${i})">&#10005;</span>
-                </div>`
-            ).join('');
-        }
+        const zip = new JSZip();
+        let generated = 0, skipped = [];
+        const dateStr = formatDate(weekTo).replace(/-/g, '');
 
-        function checkReady() {
-            const ready = partnerDB.length > 0;
-            document.getElementById('generateBtn').disabled = !ready;
-            updatePartnerDropdown();
-        }
+        // Collect all temples that need invoices
+        const allTemples = new Set();
+        Object.keys(resolvedData).forEach(t => allTemples.add(t));
+        additionalPayments.forEach(a => allTemples.add(a.partner.trim().toLowerCase()));
 
-        // --- Date formatting ---
-        function formatDate(dateStr) {
-            if (!dateStr) return '';
-            const d = new Date(dateStr);
-            const dd = String(d.getDate()).padStart(2, '0');
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const yyyy = d.getFullYear();
-            return `${dd}-${mm}-${yyyy}`;
-        }
+        const templeList = [...allTemples];
+        const total = templeList.length || 1;
 
-        function todayFormatted() {
-            return formatDate(new Date().toISOString().split('T')[0]);
-        }
+        for (let i = 0; i < templeList.length; i++) {
+            const tKey = templeList[i];
+            const info = partnerInfo[tKey];
 
-        // --- Invoice PDF Generation ---
-        function generateInvoicePDF(partnerName, details, lineItems, additionalItems, weekFrom, weekTo) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-            const pageWidth = doc.internal.pageSize.getWidth();
-            let y = 25;
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-
-            // Header details
-            const detailLines = (details || '').split('\n').filter(l => l.trim());
-            doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
-            doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
-
-            doc.setFont('helvetica', 'bold');
-            detailLines.forEach(line => {
-                doc.text(line.trim(), 20, y);
-                y += 7;
-            });
-
-            doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
-            y += 14;
-
-            // Table
-            const tableBody = [];
-            let totalAmount = 0;
-
-            lineItems.forEach(item => {
-                if (item.count > 0) {
-                    const amount = item.count * item.price;
-                    totalAmount += amount;
-                    tableBody.push([
-                        item.serviceType,
-                        String(item.count),
-                        String(item.price),
-                        String(amount)
-                    ]);
-                }
-            });
-
-            // Additional payments
-            additionalItems.forEach(item => {
-                totalAmount += item.amount;
-                tableBody.push([
-                    item.reason,
-                    '1',
-                    String(item.amount),
-                    String(item.amount)
-                ]);
-            });
-
-            doc.autoTable({
-                startY: y,
-                head: [['Service Type', 'Count', 'Price (Rs.)', 'Amount (Rs.)']],
-                body: tableBody,
-                theme: 'grid',
-                headStyles: {
-                    fillColor: [255, 255, 255],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'bold',
-                    lineColor: [0, 0, 0],
-                    lineWidth: 0.3
-                },
-                bodyStyles: {
-                    textColor: [0, 0, 0],
-                    lineColor: [0, 0, 0],
-                    lineWidth: 0.3
-                },
-                styles: {
-                    fontSize: 10,
-                    cellPadding: 5,
-                    font: 'helvetica'
-                },
-                columnStyles: {
-                    0: { cellWidth: 55 },
-                    1: { cellWidth: 30, halign: 'right' },
-                    2: { cellWidth: 40, halign: 'right' },
-                    3: { cellWidth: 40, halign: 'right' }
-                },
-                margin: { left: 20, right: 20 }
-            });
-
-            y = doc.lastAutoTable.finalY + 15;
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.text(`Total Amount to be paid - INR ${totalAmount}/-`, 20, y);
-
-            return doc.output('arraybuffer');
-        }
-
-        // --- Generate All Invoices ---
-        async function generateInvoices() {
-            const weekFrom = document.getElementById('weekFrom').value;
-            const weekTo = document.getElementById('weekTo').value;
-            if (!weekFrom || !weekTo) {
-                showStatus('Please set the payment period dates.', 'error');
-                return;
+            if (!info) {
+                // Try to find display name from orders
+                const displayName = ordersRaw.find(o => o.temple.toLowerCase() === tKey)?.temple || tKey;
+                skipped.push(displayName);
+                pFill.style.width = `${((i+1)/total)*100}%`;
+                continue;
             }
 
-            const btn = document.getElementById('generateBtn');
-            btn.disabled = true;
-            btn.textContent = 'Generating...';
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
-            progressBar.style.display = 'block';
+            const items = resolvedData[tKey] ? Object.values(resolvedData[tKey]) : [];
+            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === tKey);
 
-            const zip = new JSZip();
-            const dbMap = {};
-            partnerDB.forEach(p => { dbMap[p.name.trim().toLowerCase()] = p; });
+            // Build line items
+            const lineItems = items.map(item => {
+                const price = lookupPrice(tKey, item.key, item.mc);
+                const displayName = `${formatKeyDisplay(item.key)} (${item.mc} ${item.mc === 1 ? 'Person' : 'People'})`;
+                return { serviceType: displayName, count: item.count, price };
+            }).sort((a, b) => a.serviceType.localeCompare(b.serviceType));
 
-            let generated = 0;
-            let skipped = [];
-            const total = ordersData.length || 1;
-
-            const dateStr = formatDate(weekTo).replace(/-/g, '');
-
-            for (let i = 0; i < ordersData.length; i++) {
-                const order = ordersData[i];
-                const key = order.name.trim().toLowerCase();
-                const partner = dbMap[key];
-
-                if (!partner) {
-                    skipped.push(order.name);
-                    progressFill.style.width = `${((i + 1) / total) * 100}%`;
-                    continue;
-                }
-
-                const partnerAdditional = additionalPayments.filter(
-                    a => a.partner.trim().toLowerCase() === key
-                );
-
-                // Kundali deduction: subtract kundali count from 15 min count
-                const kundaliCount = order.counts['Kundali'] || 0;
-                const adjusted15min = Math.max(0, (order.counts['15 mins'] || 0) - kundaliCount);
-
-                const lineItems = SKU_KEYS.map(k => ({
-                    serviceType: SKU_DISPLAY[k],
-                    count: k === '15 mins' ? adjusted15min : order.counts[k],
-                    price: partner.prices[k]
-                }));
-
-                const pdfBytes = generateInvoicePDF(
-                    partner.name,
-                    partner.details,
-                    lineItems,
-                    partnerAdditional,
-                    weekFrom,
-                    weekTo
-                );
-
-                const fileName = `${partner.name.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ /g, '_')}_${dateStr}.pdf`;
-                zip.file(fileName, pdfBytes);
-                generated++;
-                progressFill.style.width = `${((i + 1) / total) * 100}%`;
-
-                await new Promise(r => setTimeout(r, 10));
-            }
-
-            // Also generate invoices for partners who only have additional payments but are NOT in orders
-            const orderNames = new Set(ordersData.map(o => o.name.trim().toLowerCase()));
-            const additionalOnly = additionalPayments.filter(
-                a => !orderNames.has(a.partner.trim().toLowerCase())
-            );
-            const additionalOnlyPartners = [...new Set(additionalOnly.map(a => a.partner.trim().toLowerCase()))];
-            for (const key of additionalOnlyPartners) {
-                const partner = dbMap[key];
-                if (!partner) continue;
-                const partnerAdditional = additionalPayments.filter(
-                    a => a.partner.trim().toLowerCase() === key
-                );
-                const lineItems = SKU_KEYS.map(k => ({
-                    serviceType: SKU_DISPLAY[k],
-                    count: 0,
-                    price: partner.prices[k]
-                }));
-                const pdfBytes = generateInvoicePDF(
-                    partner.name, partner.details, lineItems, partnerAdditional, weekFrom, weekTo
-                );
-                const fileName = `${partner.name.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ /g, '_')}_${dateStr}.pdf`;
-                zip.file(fileName, pdfBytes);
+            const pdf = generatePDF(info.name, info.details, lineItems, partnerAdd, weekFrom, weekTo);
+            if (pdf) {
+                zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf);
                 generated++;
             }
-
-            if (generated === 0) {
-                showStatus('No invoices generated. Check that partner names in orders match the database.', 'error');
-                btn.disabled = false;
-                btn.textContent = 'Generate Invoices & Download ZIP';
-                progressBar.style.display = 'none';
-                return;
-            }
-
-            const content = await zip.generateAsync({ type: 'blob' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(content);
-            link.download = `Invoices_${dateStr}.zip`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-
-            let msg = `${generated} invoice(s) generated and downloaded.`;
-            if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
-            showStatus(msg, 'success');
-
-            btn.disabled = false;
-            btn.textContent = 'Generate Invoices & Download ZIP';
-            setTimeout(() => { progressBar.style.display = 'none'; }, 1000);
+            pFill.style.width = `${((i+1)/total)*100}%`;
+            await new Promise(r => setTimeout(r, 10));
         }
 
-        function showStatus(msg, type) {
-            const el = document.getElementById('statusMsg');
-            el.textContent = msg;
-            el.className = `status ${type}`;
-        }
-    </script>
+        if (generated === 0) { showStatus('p-statusMsg','No invoices generated.','error'); btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP'; pBar.style.display='none'; return; }
+        const content = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Pooja_Invoices_${dateStr}.zip`; link.click();
+        let msg = `${generated} invoice(s) generated.`; if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
+        showStatus('p-statusMsg', msg, 'success');
+        btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP';
+        setTimeout(() => { pBar.style.display='none'; }, 1000);
+    }
+
+    return { addPayment, removePayment, generate };
+})();
+</script>
 </body>
 </html>
