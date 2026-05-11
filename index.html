@@ -290,6 +290,90 @@ function formatKeyDisplay(key) {
     return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/ - /g, ' - ').replace(/ – /g, ' – ');
 }
 
+// Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
+function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noShowCount, dakshina, additionalItems, weekFrom, weekTo) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 25;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+
+    const detailLines = (details || '').split('\n').filter(l => l.trim());
+    doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
+    doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
+    detailLines.forEach(line => { doc.text(line.trim(), 20, y); y += 7; });
+    doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
+    y += 14;
+
+    const colStyles = { 0: { cellWidth: 70 }, 1: { cellWidth: 25, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' }, 3: { cellWidth: 35, halign: 'right' } };
+    const tStyles = { fontSize: 10, cellPadding: 5, font: 'helvetica' };
+    const hStyles = { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', lineColor: [0,0,0], lineWidth: 0.3 };
+    const bStyles = { textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3 };
+
+    const taxableBody = [];
+    let taxableTotal = 0;
+
+    taxableRows.forEach(item => {
+        if (item.count > 0) {
+            const amount = item.count * item.price;
+            taxableTotal += amount;
+            taxableBody.push([item.serviceType, String(item.count), String(item.price), String(amount)]);
+        }
+    });
+
+    if (noShowCount > 0) {
+        const amt = noShowCount * 60;
+        taxableTotal += amt;
+        taxableBody.push(['No Show', String(noShowCount), '60', String(amt)]);
+    }
+
+    const eRemCosts = (eRemediesStr || '').split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0);
+    if (eRemCosts.length > 0) {
+        const eRemAmt = Math.round(eRemCosts.reduce((s, c) => s + Math.min(c * 0.05, 25), 0));
+        taxableTotal += eRemAmt;
+        taxableBody.push(['eRemedies', String(eRemCosts.length), '5% (max ₹25/pooja)', String(eRemAmt)]);
+    }
+
+    additionalItems.forEach(item => {
+        taxableTotal += item.amount;
+        taxableBody.push([item.reason, '1', String(item.amount), String(item.amount)]);
+    });
+
+    const nonTaxableBody = [];
+    let nonTaxableTotal = 0;
+
+    if (dakshina > 0) {
+        nonTaxableTotal += dakshina;
+        nonTaxableBody.push(['Dakshina', '1', String(dakshina), String(dakshina)]);
+    }
+
+    if (taxableBody.length === 0 && nonTaxableBody.length === 0) return null;
+
+    if (taxableBody.length > 0) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text('TAXABLE', 20, y); y += 6;
+        doc.autoTable({ startY: y, head: [['Service Type', 'Count', 'Price (Rs.)', 'Amount (Rs.)']], body: taxableBody, theme: 'grid', headStyles: hStyles, bodyStyles: bStyles, styles: tStyles, columnStyles: colStyles, margin: { left: 20, right: 20 } });
+        y = doc.lastAutoTable.finalY + 5;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text(`Taxable Total: INR ${taxableTotal}/-`, 20, y); y += 12;
+    }
+
+    if (nonTaxableBody.length > 0) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text('NON-TAXABLE', 20, y); y += 6;
+        doc.autoTable({ startY: y, head: [['Service Type', 'Count', 'Price (Rs.)', 'Amount (Rs.)']], body: nonTaxableBody, theme: 'grid', headStyles: hStyles, bodyStyles: bStyles, styles: tStyles, columnStyles: colStyles, margin: { left: 20, right: 20 } });
+        y = doc.lastAutoTable.finalY + 5;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text(`Non-Taxable Total: INR ${nonTaxableTotal}/-`, 20, y); y += 12;
+    }
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(`Total Amount to be paid - INR ${taxableTotal + nonTaxableTotal}/-`, 20, y);
+
+    return doc.output('arraybuffer');
+}
+
 // Shared PDF generation
 function generatePDF(partnerName, details, tableRows, additionalItems, weekFrom, weekTo) {
     const { jsPDF } = window.jspdf;
@@ -370,7 +454,7 @@ const astro = (() => {
         readExcel(file, data => {
             ordersData = data.map(row => {
                 const c = Object.keys(row);
-                return { name: row[c[0]]||'', counts: { '15 mins':parseInt(row[c[1]])||0, '30 mins':parseInt(row[c[2]])||0, '60 mins':parseInt(row[c[3]])||0, 'Prashna':parseInt(row[c[4]])||0, 'ShubhKarya':parseInt(row[c[5]])||0, 'Kundali':parseInt(row[c[6]])||0 } };
+                return { name: row[c[0]]||'', counts: { '15 mins':parseInt(row[c[1]])||0, '30 mins':parseInt(row[c[2]])||0, '60 mins':parseInt(row[c[3]])||0, 'Prashna':parseInt(row[c[4]])||0, 'ShubhKarya':parseInt(row[c[5]])||0, 'Kundali':parseInt(row[c[6]])||0 }, eRemedies: String(row[c[7]]||'').trim(), noShow: parseInt(row[c[8]])||0, dakshina: parseFloat(row[c[9]])||0 };
             });
             renderOrdersPreview(); checkReady();
         });
@@ -387,8 +471,8 @@ const astro = (() => {
     function renderOrdersPreview() {
         const el = document.getElementById('a-ordersPreview');
         if (!ordersData.length) { el.innerHTML = ''; return; }
-        let h = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prsh</th><th>Shubh</th><th>Kndli</th></tr>';
-        ordersData.forEach(o => { h += `<tr><td>${o.name}</td>`; SKU_KEYS.forEach(k => h += `<td>${o.counts[k]}</td>`); h += '</tr>'; });
+        let h = '<table><tr><th>Partner</th><th>15m</th><th>30m</th><th>60m</th><th>Prsh</th><th>Shubh</th><th>Kndli</th><th>eRemedies</th><th>No Show</th><th>Dakshina</th></tr>';
+        ordersData.forEach(o => { h += `<tr><td>${o.name}</td>`; SKU_KEYS.forEach(k => h += `<td>${o.counts[k]}</td>`); h += `<td>${o.eRemedies||'-'}</td><td>${o.noShow}</td><td>${o.dakshina||'-'}</td></tr>`; });
         el.innerHTML = h + '</table>';
     }
 
@@ -457,7 +541,7 @@ const astro = (() => {
             const adj15 = Math.max(0, (order.counts['15 mins']||0) - kundaliCount);
 
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
-            const pdf = generatePDF(partner.name, partner.details, lineItems, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo);
             if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
             pFill.style.width = `${((i+1)/total)*100}%`;
             await new Promise(r => setTimeout(r, 10));
@@ -470,7 +554,7 @@ const astro = (() => {
             const partner = dbMap[key]; if (!partner) continue;
             const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
-            const pdf = generatePDF(partner.name, partner.details, lineItems, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo);
             if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
         }
 
