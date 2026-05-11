@@ -100,7 +100,7 @@
         <h1>Dharmayana Invoice Generator</h1>
         <p>Partner payment processing & invoice generation</p>
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('astrology')">Astrology</button>
+            <button class="tab-btn active" onclick="switchTab('astrology')">Non-Pooja</button>
             <button class="tab-btn" onclick="switchTab('pooja')">Pooja</button>
         </div>
     </div>
@@ -332,7 +332,7 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     if (eRemCosts.length > 0) {
         const eRemAmt = Math.round(eRemCosts.reduce((s, c) => s + Math.min(c * 0.05, 25), 0));
         taxableTotal += eRemAmt;
-        taxableBody.push(['eRemedies', String(eRemCosts.length), '5% (max ₹25/pooja)', String(eRemAmt)]);
+        taxableBody.push(['eRemedies', String(eRemCosts.length), '5% upto INR 25 per Pooja', String(eRemAmt)]);
     }
 
     additionalItems.forEach(item => {
@@ -560,7 +560,7 @@ const astro = (() => {
 
         if (generated === 0) { showStatus('a-statusMsg','No invoices generated.','error'); btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP'; pBar.style.display='none'; return; }
         const content = await zip.generateAsync({ type: 'blob' });
-        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Astrology_Invoices_${dateStr}.zip`; link.click();
+        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Non_Pooja_Invoices_${dateStr}.zip`; link.click();
         let msg = `${generated} invoice(s) generated.`; if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
         showStatus('a-statusMsg', msg, 'success');
         btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP';
