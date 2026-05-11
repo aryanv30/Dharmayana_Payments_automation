@@ -454,7 +454,7 @@ const astro = (() => {
         readExcel(file, data => {
             ordersData = data.map(row => {
                 const c = Object.keys(row);
-                return { name: row[c[0]]||'', counts: { '15 mins':parseInt(row[c[1]])||0, '30 mins':parseInt(row[c[2]])||0, '60 mins':parseInt(row[c[3]])||0, 'Prashna':parseInt(row[c[4]])||0, 'ShubhKarya':parseInt(row[c[5]])||0, 'Kundali':parseInt(row[c[6]])||0 }, eRemedies: String(row[c[7]]||'').trim(), noShow: parseInt(row[c[8]])||0, dakshina: parseFloat(row[c[9]])||0 };
+                return { name: row[c[0]]||'', counts: { 'Prashna':parseInt(row[c[1]])||0, 'ShubhKarya':parseInt(row[c[2]])||0, 'Kundali':parseInt(row[c[3]])||0, '15 mins':parseInt(row[c[4]])||0, '30 mins':parseInt(row[c[5]])||0, '60 mins':parseInt(row[c[6]])||0 }, noShow: parseInt(row[c[7]])||0, dakshina: parseFloat(row[c[8]])||0, eRemedies: String(row[c[10]]||'').trim() };
             });
             renderOrdersPreview(); checkReady();
         });
