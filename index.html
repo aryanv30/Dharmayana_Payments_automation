@@ -147,6 +147,10 @@
                     </div>
                 </div>
             </div>
+            <div class="card" id="p-cogsCard" style="display:none;">
+                <div class="card-title">Add COGS for Pooja <span class="badge badge-warn" id="p-cogsCount"></span></div>
+                <div id="p-cogsList"></div>
+            </div>
             <div class="card">
                 <div class="card-title">Payment Period</div>
                 <div class="period-row">
@@ -260,43 +264,48 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     const taxableBody = [];
     let taxableTotal = 0;
 
+    const R = n => Math.round(Number(n) || 0);
+
     taxableRows.forEach(item => {
         if (item.count > 0) {
-            const amount = item.count * item.price;
+            const amount = R(item.count * item.price);
             taxableTotal += amount;
-            taxableBody.push([item.serviceType, String(item.count), String(item.price), String(amount)]);
+            taxableBody.push([item.serviceType, String(item.count), String(R(item.price)), String(amount)]);
         }
     });
 
     if (noShowCount > 0) {
-        const amt = noShowCount * 60;
+        const amt = R(noShowCount * 60);
         taxableTotal += amt;
         taxableBody.push(['No Show', String(noShowCount), '60', String(amt)]);
     }
 
     const eRemCosts = (eRemediesStr || '').split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0);
     if (eRemCosts.length > 0) {
-        const eRemAmt = Math.round(eRemCosts.reduce((s, c) => s + Math.min(c * 0.05, 25), 0));
+        const eRemAmt = R(eRemCosts.reduce((s, c) => s + Math.min(c * 0.05, 25), 0));
         taxableTotal += eRemAmt;
         taxableBody.push(['eRemedies', String(eRemCosts.length), '5% upto INR 25 per Pooja', String(eRemAmt)]);
     }
 
     additionalItems.filter(item => (item.section || 'taxable') !== 'nonTaxable').forEach(item => {
-        taxableTotal += item.amount;
-        taxableBody.push([item.reason, '1', String(item.amount), String(item.amount)]);
+        const amt = R(item.amount);
+        taxableTotal += amt;
+        taxableBody.push([item.reason, '1', String(amt), String(amt)]);
     });
 
     const nonTaxableBody = [];
     let nonTaxableTotal = 0;
 
     if (dakshina > 0) {
-        nonTaxableTotal += dakshina;
-        nonTaxableBody.push(['Dakshina', '1', String(dakshina), String(dakshina)]);
+        const amt = R(dakshina);
+        nonTaxableTotal += amt;
+        nonTaxableBody.push(['Dakshina', '1', String(amt), String(amt)]);
     }
 
     additionalItems.filter(item => item.section === 'nonTaxable').forEach(item => {
-        nonTaxableTotal += item.amount;
-        nonTaxableBody.push([item.reason, '1', String(item.amount), String(item.amount)]);
+        const amt = R(item.amount);
+        nonTaxableTotal += amt;
+        nonTaxableBody.push([item.reason, '1', String(amt), String(amt)]);
     });
 
     if (taxableBody.length === 0 && nonTaxableBody.length === 0) return null;
@@ -319,8 +328,46 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
         doc.text(`Non-Taxable Total: INR ${nonTaxableTotal}/-`, 20, y); y += 12;
     }
 
+    const grandTotal = taxableTotal + nonTaxableTotal;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text(`Total Amount to be paid - INR ${taxableTotal + nonTaxableTotal}/-`, 20, y);
+    doc.text(`Total Amount to be paid - INR ${grandTotal}/-`, 20, y);
+
+    return { buffer: doc.output('arraybuffer'), total: grandTotal };
+}
+
+// Consolidated summary PDF — one row per supply with the total paid
+function generateSummaryPDF(entries, weekFrom, weekTo) {
+    if (!entries.length) return null;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 25;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Payment Summary', 20, y); y += 9;
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 6;
+    doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y); y += 10;
+
+    const sorted = [...entries].sort((a, b) => a.supply.localeCompare(b.supply));
+    const body = sorted.map(e => [e.supply, String(Math.round(e.total))]);
+    const grand = sorted.reduce((s, e) => s + Math.round(e.total), 0);
+
+    doc.autoTable({
+        startY: y,
+        head: [['Supply Name', 'Total Amount (Rs.)']],
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', lineColor: [0,0,0], lineWidth: 0.3 },
+        bodyStyles: { textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3 },
+        styles: { fontSize: 10, cellPadding: 5, font: 'helvetica' },
+        columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 45, halign: 'right' } },
+        margin: { left: 20, right: 20 }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(`Grand Total: INR ${grand}/-`, 20, y);
 
     return doc.output('arraybuffer');
 }
@@ -433,13 +480,21 @@ const astro = (() => {
         const names = new Set();
         partnerDB.forEach(p => names.add(p.name));
         ordersData.forEach(o => names.add(o.name));
+        if (typeof pooja !== 'undefined' && pooja.getSupplyNames) {
+            pooja.getSupplyNames().forEach(n => names.add(n));
+        }
         [...names].sort().forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
     }
 
     function checkReady() {
-        document.getElementById('a-generateBtn').disabled = partnerDB.length === 0;
+        const hasAstro = partnerDB.length > 0;
+        const hasPooja = typeof pooja !== 'undefined' && pooja.hasData && pooja.hasData();
+        const cogsOK = typeof pooja === 'undefined' || !pooja.hasPending() || pooja.allCogsFilled();
+        document.getElementById('a-generateBtn').disabled = !((hasAstro || hasPooja) && cogsOK);
         updateDropdown();
     }
+
+    function refresh() { checkReady(); }
 
     function addPayment() {
         const partner = document.getElementById('a-addPartnerSelect').value;
@@ -481,6 +536,7 @@ const astro = (() => {
         const zip = new JSZip();
         const dbMap = {}; partnerDB.forEach(p => { dbMap[p.name.trim().toLowerCase()] = p; });
         let generated = 0, skipped = [];
+        const summary = [];   // [{ supply, total }] — fed to the consolidated PDF
         const dateStr = formatDate(weekTo).replace(/-/g, '');
         const total = ordersData.length || 1;
 
@@ -496,7 +552,11 @@ const astro = (() => {
 
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
             const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo);
-            if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
+            if (pdf) {
+                zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: partner.name, total: pdf.total });
+                generated++;
+            }
             pFill.style.width = `${((i+1)/total)*100}%`;
             await new Promise(r => setTimeout(r, 10));
         }
@@ -509,31 +569,289 @@ const astro = (() => {
             const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
             const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo);
-            if (pdf) { zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf); generated++; }
+            if (pdf) {
+                zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: partner.name, total: pdf.total });
+                generated++;
+            }
+        }
+
+        // Process pooja invoices into the same ZIP
+        let poojaSkipped = [], poojaUnresolved = [];
+        if (typeof pooja !== 'undefined' && pooja.processInto) {
+            const r = pooja.processInto(zip, weekFrom, weekTo, additionalPayments, dateStr);
+            generated += r.generated;
+            poojaSkipped = r.skipped;
+            poojaUnresolved = r.unresolved;
+            summary.push(...r.summary);
         }
 
         if (generated === 0) { showStatus('a-statusMsg','No invoices generated.','error'); btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP'; pBar.style.display='none'; return; }
+
+        // Consolidated summary PDF (Supply name, Total Amount)
+        const summaryPdf = generateSummaryPDF(summary, weekFrom, weekTo);
+        if (summaryPdf) zip.file(`_Payment_Summary_${dateStr}.pdf`, summaryPdf);
+
         const content = await zip.generateAsync({ type: 'blob' });
-        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Non_Pooja_Invoices_${dateStr}.zip`; link.click();
-        let msg = `${generated} invoice(s) generated.`; if (skipped.length) msg += ` Skipped: ${skipped.join(', ')}`;
+        const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Invoices_${dateStr}.zip`; link.click();
+        let msg = `${generated} invoice(s) generated.`;
+        const allSkipped = [...skipped, ...poojaSkipped];
+        if (allSkipped.length) msg += ` Skipped: ${allSkipped.join(', ')}.`;
+        if (poojaUnresolved.length) {
+            const ul = poojaUnresolved.map(u => `${u.supply} (${u.count})`).join(', ');
+            msg += ` Orders not included in invoice: ${ul}.`;
+        }
         showStatus('a-statusMsg', msg, 'success');
         btn.disabled=false; btn.textContent='Generate Invoices & Download ZIP';
         setTimeout(() => { pBar.style.display='none'; }, 1000);
     }
 
-    return { addPayment, removePayment, generate };
+    return { addPayment, removePayment, generate, refresh };
 })();
 
-// ==================== POOJA UPLOADS (logic pending) ====================
-setupDropZone('p-dbZone', 'p-dbFile', file => {
-    document.getElementById('p-dbFileName').textContent = file.name;
-    document.getElementById('p-dbZone').classList.add('uploaded');
-});
+// ==================== POOJA MODULE ====================
+const pooja = (() => {
+    let cogsMap = {};       // { 'pooja_key|deity|variant': COGS } (from details sheet)
+    let manualCogs = {};    // { 'pooja_key|deity|variant': COGS } (entered in the UI)
+    let pendingCogs = [];   // [{ key, deity, variant, display }]
+    let ordersData = [];    // [{ supply, dakshina, orders: [{key, deity, variant, count}] }]
+    let supplyNames = new Set();
+    let partnerInfo = {};   // { supply_name_lower: { name, details } }
 
-setupDropZone('p-ordersZone', 'p-ordersFile', file => {
-    document.getElementById('p-ordersFileName').textContent = file.name;
-    document.getElementById('p-ordersZone').classList.add('uploaded');
-});
+    function normalizeKey(s) {
+        // Collapse en-dash / em-dash to hyphen-minus so the COGS sheet (which
+        // uses '-') matches the orders sheet (which mixes '-' and '–').
+        return String(s || '').replace(/[–—]/g, '-').trim().toLowerCase();
+    }
+
+    function normalizeVariant(variantName) {
+        const v = String(variantName || '').toLowerCase();
+        if (v.includes('1 person')) return 1;
+        if (v.includes('2 people') || v.includes('2 person')) return 2;
+        if (v.includes('4 people') || v.includes('4 person')) return 4;
+        return 0; // No Variant / unknown
+    }
+
+    function parseOrders(str) {
+        if (!str) return [];
+        // Walk the string with a global regex instead of splitting on ',' — keys
+        // like "ladoo_gopal_(makhan,_dudh)" embed commas.
+        const re = /([^<]+?)\s*<([^>]+?)>\s*\(([^)]+?)\)\s*x(\d+)/g;
+        const result = [];
+        let m;
+        while ((m = re.exec(str)) !== null) {
+            const rawKey = m[1].replace(/^[,\s]+/, '').trim();
+            if (!rawKey) continue;
+            const variantStr = m[3].trim();
+            const count = parseInt(m[4]) || 0;
+            if (count <= 0) continue;
+            result.push({
+                key: normalizeKey(rawKey),
+                deity: normalizeKey(m[2]),
+                variant: variantStr === '-' ? 0 : (parseInt(variantStr) || 0),
+                count,
+                raw: m[0].replace(/^[,\s]+/, '')
+            });
+        }
+        return result;
+    }
+
+    // COGS lookup with two fallback rules:
+    //  A) order has "no variant" (0) but COGS only has sized variants → use the 1-person COGS
+    //  B) order has 1-person variant but COGS only has a no-variant row → use the no-variant COGS
+    function lookupCogs(key, deity, variant) {
+        const composite = `${key}|${deity}|${variant}`;
+        if (cogsMap[composite] !== undefined) return cogsMap[composite];
+        const at = v => cogsMap[`${key}|${deity}|${v}`];
+        if (variant === 0 && at(0) === undefined && at(1) !== undefined) return at(1);
+        if (variant === 1 && at(0) !== undefined && at(1) === undefined && at(2) === undefined && at(4) === undefined) return at(0);
+        if (manualCogs[composite] !== undefined) return manualCogs[composite];
+        return undefined;
+    }
+
+    function recomputePending() {
+        pendingCogs = [];
+        if (!ordersData.length) { renderPendingCogs(); return; }
+        const seen = new Set();
+        ordersData.forEach(sup => {
+            sup.orders.forEach(o => {
+                if (lookupCogs(o.key, o.deity, o.variant) !== undefined) return;
+                const rowKey = `${sup.supply}|${o.key}|${o.deity}|${o.variant}`;
+                if (seen.has(rowKey)) return;
+                seen.add(rowKey);
+                const display = (o.raw || '').replace(/\s*x\d+\s*$/, '').trim();
+                pendingCogs.push({ supply: sup.supply, key: o.key, deity: o.deity, variant: o.variant, display });
+            });
+        });
+        pendingCogs.sort((a, b) => a.supply.localeCompare(b.supply) || a.display.localeCompare(b.display));
+        renderPendingCogs();
+    }
+
+    function renderPendingCogs() {
+        const card = document.getElementById('p-cogsCard');
+        const list = document.getElementById('p-cogsList');
+        const badge = document.getElementById('p-cogsCount');
+        if (!pendingCogs.length) {
+            card.style.display = 'none';
+            list.innerHTML = '';
+            badge.textContent = '';
+            return;
+        }
+        card.style.display = 'block';
+        const uniqueCogsKeys = new Set(pendingCogs.map(p => `${p.key}|${p.deity}|${p.variant}`));
+        badge.textContent = `${uniqueCogsKeys.size} pooja(s) · ${pendingCogs.length} row(s)`;
+        let h = '<div style="font-size:0.78rem;color:#92400e;margin-bottom:10px;">These orders are not in the Pooja Details sheet. Fill COGS for every row to enable invoice generation. Rows that share the same pooja+deity+variant stay in sync — typing the COGS in any one row fills the rest.</div>';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;"><tr>' +
+             '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#374151;width:28%;">Supply</th>' +
+             '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#374151;">Pooja</th>' +
+             '<th style="width:140px;text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#374151;">COGS (Rs.)</th></tr>';
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        pendingCogs.forEach(p => {
+            const k = `${p.key}|${p.deity}|${p.variant}`;
+            const val = manualCogs[k] !== undefined ? manualCogs[k] : '';
+            h += `<tr>` +
+                 `<td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;color:#1f2937;">${esc(p.supply)}</td>` +
+                 `<td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;font-family:monospace;font-size:0.76rem;color:#1f2937;">${esc(p.display)}</td>` +
+                 `<td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;"><input type="number" min="0" step="0.01" data-cogs-key="${k}" value="${val}" placeholder="Enter COGS" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-family:inherit;font-size:0.82rem;"></td>` +
+                 `</tr>`;
+        });
+        h += '</table>';
+        list.innerHTML = h;
+        list.querySelectorAll('input[data-cogs-key]').forEach(inp => {
+            inp.addEventListener('input', e => {
+                const k = e.target.getAttribute('data-cogs-key');
+                const raw = e.target.value.trim();
+                if (raw === '' || isNaN(parseFloat(raw))) delete manualCogs[k];
+                else manualCogs[k] = parseFloat(raw);
+                // Sync sibling inputs that share the same composite key
+                list.querySelectorAll(`input[data-cogs-key="${CSS.escape(k)}"]`).forEach(other => {
+                    if (other !== e.target) other.value = e.target.value;
+                });
+                astro.refresh();
+            });
+        });
+    }
+
+    function hasPending() { return pendingCogs.length > 0; }
+    function allCogsFilled() {
+        return pendingCogs.every(p => manualCogs[`${p.key}|${p.deity}|${p.variant}`] !== undefined);
+    }
+
+    setupDropZone('p-dbZone', 'p-dbFile', file => {
+        document.getElementById('p-dbFileName').textContent = file.name;
+        document.getElementById('p-dbZone').classList.add('uploaded');
+        readExcel(file, sheets => {
+            cogsMap = {};
+            partnerInfo = {};
+            const activeKey = Object.keys(sheets).find(k => k.toLowerCase().trim().startsWith('active')) || Object.keys(sheets)[0];
+            const activeSheet = sheets[activeKey] || [];
+            activeSheet.forEach(row => {
+                const cols = Object.keys(row);
+                const key = normalizeKey(row[cols[0]]);
+                const deity = normalizeKey(row[cols[2]]);
+                const variantName = String(row[cols[3]]||'').trim();
+                const cogs = parseFloat(row[cols[6]]) || 0;
+                if (!key) return;
+                const variant = normalizeVariant(variantName);
+                cogsMap[`${key}|${deity}|${variant}`] = cogs;
+            });
+
+            // Optional "Details" sheet: col 0 = supply name, col 1 = bank/payment details
+            const detailsKey = Object.keys(sheets).find(k => k.toLowerCase().trim().startsWith('detail'));
+            if (detailsKey) {
+                const detailsSheet = sheets[detailsKey] || [];
+                detailsSheet.forEach(row => {
+                    const cols = Object.keys(row);
+                    const name = String(row[cols[0]]||'').trim();
+                    if (!name) return;
+                    partnerInfo[name.toLowerCase()] = { name, details: String(row[cols[1]]||'') };
+                });
+            }
+
+            recomputePending();
+            astro.refresh();
+        }, true);
+    });
+
+    setupDropZone('p-ordersZone', 'p-ordersFile', file => {
+        document.getElementById('p-ordersFileName').textContent = file.name;
+        document.getElementById('p-ordersZone').classList.add('uploaded');
+        readExcel(file, data => {
+            ordersData = data.map(row => {
+                const cols = Object.keys(row);
+                const supply = String(row[cols[0]]||'').trim();
+                const dakshina = parseFloat(row[cols[1]]) || 0;
+                const orders = parseOrders(String(row[cols[2]]||''));
+                return { supply, dakshina, orders };
+            }).filter(r => r.supply);
+            supplyNames = new Set(ordersData.map(o => o.supply));
+            recomputePending();
+            astro.refresh();
+        });
+    });
+
+    function formatPoojaLabel(key, deity, variant) {
+        const keyDisplay = formatKeyDisplay(key).trim();
+        const deityDisplay = formatKeyDisplay(deity).trim();
+        const variantDisplay = variant === 0 ? '' : ` (${variant} ${variant === 1 ? 'Person' : 'People'})`;
+        return `${keyDisplay} – ${deityDisplay}${variantDisplay}`;
+    }
+
+    function processInto(zip, weekFrom, weekTo, additionalPayments, dateStr) {
+        const skipped = [];
+        const unresolved = []; // [{ supply, count }]
+        const summary = [];    // [{ supply, total }]
+        let generated = 0;
+
+        ordersData.forEach(supplyOrder => {
+            const supplyKey = supplyOrder.supply.trim().toLowerCase();
+            const info = partnerInfo[supplyKey];
+            // Mirror the astro flow: if the supply isn't in the Details sheet,
+            // skip the invoice entirely.
+            if (!info) {
+                skipped.push(supplyOrder.supply);
+                return;
+            }
+
+            let unresolvedCount = 0;
+            const aggregated = {};
+
+            supplyOrder.orders.forEach(o => {
+                const cogs = lookupCogs(o.key, o.deity, o.variant);
+                if (cogs === undefined || cogs === null) {
+                    unresolvedCount += o.count;
+                    return;
+                }
+                const bucket = `${o.key}|${o.deity}|${o.variant}`;
+                if (!aggregated[bucket]) {
+                    aggregated[bucket] = { serviceType: formatPoojaLabel(o.key, o.deity, o.variant), count: 0, price: cogs };
+                }
+                aggregated[bucket].count += o.count;
+            });
+
+            const lineItems = Object.values(aggregated).sort((a, b) => a.serviceType.localeCompare(b.serviceType));
+            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === supplyKey);
+            const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo);
+            if (pdf) {
+                zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: info.name, total: pdf.total });
+                generated++;
+            } else {
+                skipped.push(supplyOrder.supply);
+            }
+            if (unresolvedCount > 0) {
+                unresolved.push({ supply: supplyOrder.supply, count: unresolvedCount });
+            }
+        });
+
+        return { generated, skipped, unresolved, summary };
+    }
+
+    function getSupplyNames() { return supplyNames; }
+    function hasData() { return ordersData.length > 0; }
+
+    return { processInto, getSupplyNames, hasData, hasPending, allCogsFilled };
+})();
 
 </script>
 </body>
