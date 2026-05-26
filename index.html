@@ -483,6 +483,9 @@ const astro = (() => {
         if (typeof pooja !== 'undefined' && pooja.getSupplyNames) {
             pooja.getSupplyNames().forEach(n => names.add(n));
         }
+        if (typeof pooja !== 'undefined' && pooja.getPartnerNames) {
+            pooja.getPartnerNames().forEach(n => names.add(n));
+        }
         [...names].sort().forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
     }
 
@@ -579,7 +582,8 @@ const astro = (() => {
         // Process pooja invoices into the same ZIP
         let poojaSkipped = [], poojaUnresolved = [];
         if (typeof pooja !== 'undefined' && pooja.processInto) {
-            const r = pooja.processInto(zip, weekFrom, weekTo, additionalPayments, dateStr);
+            const astroPartnerKeys = new Set(Object.keys(dbMap));
+            const r = pooja.processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys);
             generated += r.generated;
             poojaSkipped = r.skipped;
             poojaUnresolved = r.unresolved;
@@ -797,11 +801,12 @@ const pooja = (() => {
         return `${keyDisplay} – ${deityDisplay}${variantDisplay}`;
     }
 
-    function processInto(zip, weekFrom, weekTo, additionalPayments, dateStr) {
+    function processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys) {
         const skipped = [];
         const unresolved = []; // [{ supply, count }]
         const summary = [];    // [{ supply, total }]
         let generated = 0;
+        const handled = new Set(); // partner keys this loop has already invoiced
 
         ordersData.forEach(supplyOrder => {
             const supplyKey = supplyOrder.supply.trim().toLowerCase();
@@ -835,6 +840,7 @@ const pooja = (() => {
             if (pdf) {
                 zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: info.name, total: pdf.total });
+                handled.add(supplyKey);
                 generated++;
             } else {
                 skipped.push(supplyOrder.supply);
@@ -844,13 +850,31 @@ const pooja = (() => {
             }
         });
 
+        // Pooja partners present only in the Details sheet (no orders) but with
+        // an additional payment — generate an invoice for just that payment.
+        const addKeys = new Set(additionalPayments.map(a => a.partner.trim().toLowerCase()));
+        addKeys.forEach(k => {
+            if (handled.has(k)) return;                          // already invoiced above
+            if (astroPartnerKeys && astroPartnerKeys.has(k)) return; // astro covers it
+            const info = partnerInfo[k];
+            if (!info) return;                                   // not a pooja partner
+            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === k);
+            const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo);
+            if (pdf) {
+                zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: info.name, total: pdf.total });
+                generated++;
+            }
+        });
+
         return { generated, skipped, unresolved, summary };
     }
 
     function getSupplyNames() { return supplyNames; }
-    function hasData() { return ordersData.length > 0; }
+    function hasData() { return ordersData.length > 0 || Object.keys(partnerInfo).length > 0; }
+    function getPartnerNames() { return new Set(Object.values(partnerInfo).map(p => p.name)); }
 
-    return { processInto, getSupplyNames, hasData, hasPending, allCogsFilled };
+    return { processInto, getSupplyNames, getPartnerNames, hasData, hasPending, allCogsFilled };
 })();
 
 </script>
