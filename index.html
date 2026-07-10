@@ -240,8 +240,25 @@ function formatKeyDisplay(key) {
     return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/ - /g, ' - ').replace(/ – /g, ' – ');
 }
 
+// Drop a leading honorific like "Dr.", "Jyo.", "Sri.", "Mr." — any single
+// token that ends with a dot, plus any whitespace after it. Applied to both
+// sides of a name comparison so title differences don't break matching.
+function stripTitle(s) {
+    return String(s || '').replace(/^\s*[A-Za-z]+\.\s*/, '').trim();
+}
+function partnerKey(s) {
+    return stripTitle(s).toLowerCase();
+}
+
+// SLA-based incentive eligibility: blank values default to 100 (fully met).
+function isIncentiveEligible(sla) {
+    const s = sla || {};
+    const val = v => (v === undefined || v === null || v === '' || Number.isNaN(v)) ? 100 : Number(v);
+    return val(s.prashna_sla) >= 98 && val(s.consultation_sla) >= 98 && val(s.camera_on_pct) >= 100 && val(s.csat) >= 85;
+}
+
 // Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
-function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noShowCount, dakshina, additionalItems, weekFrom, weekTo) {
+function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noShowCount, dakshina, additionalItems, weekFrom, weekTo, slaInfo) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     let y = 25;
@@ -261,15 +278,24 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     const hStyles = { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', lineColor: [0,0,0], lineWidth: 0.3 };
     const bStyles = { textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3 };
 
+    const R = n => Math.round(Number(n) || 0);
+
+    // Skip the whole invoice only when the partner has no activity at all.
+    // (Incentive / eRemedies / Dakshina rows are shown as 0 otherwise.)
+    const eRemCosts = (eRemediesStr || '').split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0);
+    const hasOrderRows = (taxableRows || []).some(item => item.count > 0);
+    const hasContent = hasOrderRows || noShowCount > 0 || eRemCosts.length > 0 || dakshina > 0 || (additionalItems && additionalItems.length > 0);
+    if (!hasContent) return null;
+
     const taxableBody = [];
     let taxableTotal = 0;
-
-    const R = n => Math.round(Number(n) || 0);
+    let orderPaymentTotal = 0; // service/order rows only — base for the 5% incentive
 
     taxableRows.forEach(item => {
         if (item.count > 0) {
             const amount = R(item.count * item.price);
             taxableTotal += amount;
+            orderPaymentTotal += amount;
             taxableBody.push([item.serviceType, String(item.count), String(R(item.price)), String(amount)]);
         }
     });
@@ -280,12 +306,19 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
         taxableBody.push(['No Show', String(noShowCount), '60', String(amt)]);
     }
 
-    const eRemCosts = (eRemediesStr || '').split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0);
-    if (eRemCosts.length > 0) {
-        const eRemAmt = R(eRemCosts.reduce((s, c) => s + Math.min(c * 0.05, 25), 0));
-        taxableTotal += eRemAmt;
-        taxableBody.push(['eRemedies', String(eRemCosts.length), '5% upto INR 25 per Pooja', String(eRemAmt)]);
-    }
+    // Incentive row: always shown. 5% of the order-payment total (excludes
+    // eRemedies commission and the incentive itself) when SLA thresholds pass;
+    // blank SLA columns default to 100%. Otherwise 0.
+    const incentive = (orderPaymentTotal > 0 && isIncentiveEligible(slaInfo)) ? R(orderPaymentTotal * 0.05) : 0;
+    taxableTotal += incentive;
+    taxableBody.push(['Incentive', '1', '5% of order payment', String(incentive)]);
+
+    // eRemedies commission — always shown; flat per-pooja rate:
+    //   <= ₹100 → ₹25 / pooja
+    //   >  ₹100 → ₹50 / pooja
+    const eRemAmt = R(eRemCosts.reduce((s, c) => s + (c <= 100 ? 25 : 50), 0));
+    taxableTotal += eRemAmt;
+    taxableBody.push(['eRemedies', String(eRemCosts.length), 'INR 25 (<=INR 100) / INR 50 (>INR 100)', String(eRemAmt)]);
 
     additionalItems.filter(item => (item.section || 'taxable') !== 'nonTaxable').forEach(item => {
         const amt = R(item.amount);
@@ -296,19 +329,16 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     const nonTaxableBody = [];
     let nonTaxableTotal = 0;
 
-    if (dakshina > 0) {
-        const amt = R(dakshina);
-        nonTaxableTotal += amt;
-        nonTaxableBody.push(['Dakshina', '1', String(amt), String(amt)]);
-    }
+    // Dakshina row: always shown, 0 if none received.
+    const dakshinaAmt = R(dakshina);
+    nonTaxableTotal += dakshinaAmt;
+    nonTaxableBody.push(['Dakshina', '1', String(dakshinaAmt), String(dakshinaAmt)]);
 
     additionalItems.filter(item => item.section === 'nonTaxable').forEach(item => {
         const amt = R(item.amount);
         nonTaxableTotal += amt;
         nonTaxableBody.push([item.reason, '1', String(amt), String(amt)]);
     });
-
-    if (taxableBody.length === 0 && nonTaxableBody.length === 0) return null;
 
     if (taxableBody.length > 0) {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
@@ -452,7 +482,15 @@ const astro = (() => {
         readExcel(file, data => {
             ordersData = data.map(row => {
                 const c = Object.keys(row);
-                return { name: row[c[0]]||'', counts: { 'Prashna':parseInt(row[c[1]])||0, 'ShubhKarya':parseInt(row[c[2]])||0, 'Kundali':parseInt(row[c[3]])||0, '15 mins':parseInt(row[c[4]])||0, '30 mins':parseInt(row[c[5]])||0, '60 mins':parseInt(row[c[6]])||0 }, noShow: parseInt(row[c[7]])||0, dakshina: parseFloat(row[c[8]])||0, eRemedies: String(row[c[10]]||'').trim() };
+                const slaRaw = i => { const v = row[c[i]]; return (v === undefined || v === null || String(v).trim() === '') ? '' : v; };
+                return {
+                    name: row[c[0]]||'',
+                    counts: { 'Prashna':parseInt(row[c[1]])||0, 'ShubhKarya':parseInt(row[c[2]])||0, 'Kundali':parseInt(row[c[3]])||0, '15 mins':parseInt(row[c[4]])||0, '30 mins':parseInt(row[c[5]])||0, '60 mins':parseInt(row[c[6]])||0 },
+                    noShow: parseInt(row[c[7]])||0,
+                    dakshina: parseFloat(row[c[8]])||0,
+                    eRemedies: String(row[c[10]]||'').trim(),
+                    sla: { prashna_sla: slaRaw(11), consultation_sla: slaRaw(12), camera_on_pct: slaRaw(13), csat: slaRaw(14) }
+                };
             });
             renderOrdersPreview(); checkReady();
         });
@@ -537,7 +575,7 @@ const astro = (() => {
         pBar.style.display = 'block';
 
         const zip = new JSZip();
-        const dbMap = {}; partnerDB.forEach(p => { dbMap[p.name.trim().toLowerCase()] = p; });
+        const dbMap = {}; partnerDB.forEach(p => { dbMap[partnerKey(p.name)] = p; });
         let generated = 0, skipped = [];
         const summary = [];   // [{ supply, total }] — fed to the consolidated PDF
         const dateStr = formatDate(weekTo).replace(/-/g, '');
@@ -545,16 +583,16 @@ const astro = (() => {
 
         for (let i = 0; i < ordersData.length; i++) {
             const order = ordersData[i];
-            const key = order.name.trim().toLowerCase();
+            const key = partnerKey(order.name);
             const partner = dbMap[key];
             if (!partner) { skipped.push(order.name); pFill.style.width = `${((i+1)/total)*100}%`; continue; }
 
-            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === key);
             const kundaliCount = order.counts['Kundali'] || 0;
             const adj15 = Math.max(0, (order.counts['15 mins']||0) - kundaliCount);
 
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
-            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo, order.sla);
             if (pdf) {
                 zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: partner.name, total: pdf.total });
@@ -565,11 +603,11 @@ const astro = (() => {
         }
 
         // Additional-only partners
-        const orderNames = new Set(ordersData.map(o => o.name.trim().toLowerCase()));
-        const addOnlyKeys = [...new Set(additionalPayments.filter(a => !orderNames.has(a.partner.trim().toLowerCase())).map(a => a.partner.trim().toLowerCase()))];
+        const orderNames = new Set(ordersData.map(o => partnerKey(o.name)));
+        const addOnlyKeys = [...new Set(additionalPayments.filter(a => !orderNames.has(partnerKey(a.partner))).map(a => partnerKey(a.partner)))];
         for (const key of addOnlyKeys) {
             const partner = dbMap[key]; if (!partner) continue;
-            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === key);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === key);
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
             const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo);
             if (pdf) {
@@ -768,7 +806,7 @@ const pooja = (() => {
                     const cols = Object.keys(row);
                     const name = String(row[cols[0]]||'').trim();
                     if (!name) return;
-                    partnerInfo[name.toLowerCase()] = { name, details: String(row[cols[1]]||'') };
+                    partnerInfo[partnerKey(name)] = { name, details: String(row[cols[1]]||'') };
                 });
             }
 
@@ -809,7 +847,7 @@ const pooja = (() => {
         const handled = new Set(); // partner keys this loop has already invoiced
 
         ordersData.forEach(supplyOrder => {
-            const supplyKey = supplyOrder.supply.trim().toLowerCase();
+            const supplyKey = partnerKey(supplyOrder.supply);
             const info = partnerInfo[supplyKey];
             // Mirror the astro flow: if the supply isn't in the Details sheet,
             // skip the invoice entirely.
@@ -835,7 +873,7 @@ const pooja = (() => {
             });
 
             const lineItems = Object.values(aggregated).sort((a, b) => a.serviceType.localeCompare(b.serviceType));
-            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === supplyKey);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === supplyKey);
             const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo);
             if (pdf) {
                 zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
@@ -852,13 +890,13 @@ const pooja = (() => {
 
         // Pooja partners present only in the Details sheet (no orders) but with
         // an additional payment — generate an invoice for just that payment.
-        const addKeys = new Set(additionalPayments.map(a => a.partner.trim().toLowerCase()));
+        const addKeys = new Set(additionalPayments.map(a => partnerKey(a.partner)));
         addKeys.forEach(k => {
             if (handled.has(k)) return;                          // already invoiced above
             if (astroPartnerKeys && astroPartnerKeys.has(k)) return; // astro covers it
             const info = partnerInfo[k];
             if (!info) return;                                   // not a pooja partner
-            const partnerAdd = additionalPayments.filter(a => a.partner.trim().toLowerCase() === k);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === k);
             const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo);
             if (pdf) {
                 zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
