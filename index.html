@@ -267,7 +267,7 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     doc.setFontSize(11);
 
     const detailLines = (details || '').split('\n').filter(l => l.trim());
-    doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
+    doc.text(`Service Provider Name: ${stripTitle(partnerName)}`, 20, y); y += 7;
     doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
     detailLines.forEach(line => { doc.text(line.trim(), 20, y); y += 7; });
     doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
@@ -290,12 +290,14 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     const taxableBody = [];
     let taxableTotal = 0;
     let orderPaymentTotal = 0; // service/order rows only — base for the 5% incentive
+    let orderCount = 0;        // total service/order count — base for potential eRemedy
 
     taxableRows.forEach(item => {
         if (item.count > 0) {
             const amount = R(item.count * item.price);
             taxableTotal += amount;
             orderPaymentTotal += amount;
+            orderCount += item.count;
             taxableBody.push([item.serviceType, String(item.count), String(R(item.price)), String(amount)]);
         }
     });
@@ -306,19 +308,22 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
         taxableBody.push(['No Show', String(noShowCount), '60', String(amt)]);
     }
 
-    // Incentive row: always shown. 5% of the order-payment total (excludes
-    // eRemedies commission and the incentive itself) when SLA thresholds pass;
-    // blank SLA columns default to 100%. Otherwise 0.
+    // Incentive: 5% of the order-payment total when SLA thresholds pass.
+    // Blank SLA columns default to 100%. Row is only shown when > 0.
     const incentive = (orderPaymentTotal > 0 && isIncentiveEligible(slaInfo)) ? R(orderPaymentTotal * 0.05) : 0;
-    taxableTotal += incentive;
-    taxableBody.push(['Incentive', '1', '5% of order payment', String(incentive)]);
+    if (incentive > 0) {
+        taxableTotal += incentive;
+        taxableBody.push(['Incentive', '1', '5% of order payment', String(incentive)]);
+    }
 
-    // eRemedies commission — always shown; flat per-pooja rate:
+    // eRemedies commission — flat per-pooja rate. Row only shown when > 0.
     //   <= ₹100 → ₹25 / pooja
     //   >  ₹100 → ₹50 / pooja
     const eRemAmt = R(eRemCosts.reduce((s, c) => s + (c <= 100 ? 25 : 50), 0));
-    taxableTotal += eRemAmt;
-    taxableBody.push(['eRemedies', String(eRemCosts.length), 'INR 25 (<=INR 100) / INR 50 (>INR 100)', String(eRemAmt)]);
+    if (eRemAmt > 0) {
+        taxableTotal += eRemAmt;
+        taxableBody.push(['eRemedies', String(eRemCosts.length), 'INR 25 (<=INR 100) / INR 50 (>INR 100)', String(eRemAmt)]);
+    }
 
     additionalItems.filter(item => (item.section || 'taxable') !== 'nonTaxable').forEach(item => {
         const amt = R(item.amount);
@@ -329,10 +334,12 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     const nonTaxableBody = [];
     let nonTaxableTotal = 0;
 
-    // Dakshina row: always shown, 0 if none received.
+    // Dakshina row shown only when > 0.
     const dakshinaAmt = R(dakshina);
-    nonTaxableTotal += dakshinaAmt;
-    nonTaxableBody.push(['Dakshina', '1', String(dakshinaAmt), String(dakshinaAmt)]);
+    if (dakshinaAmt > 0) {
+        nonTaxableTotal += dakshinaAmt;
+        nonTaxableBody.push(['Dakshina', '1', String(dakshinaAmt), String(dakshinaAmt)]);
+    }
 
     additionalItems.filter(item => item.section === 'nonTaxable').forEach(item => {
         const amt = R(item.amount);
@@ -362,7 +369,14 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(`Total Amount to be paid - INR ${grandTotal}/-`, 20, y);
 
-    return { buffer: doc.output('arraybuffer'), total: grandTotal };
+    return {
+        buffer: doc.output('arraybuffer'),
+        total: grandTotal,
+        incentive,
+        eRemAmt,
+        orderPaymentTotal,
+        orderCount
+    };
 }
 
 // Consolidated summary PDF — one row per supply with the total paid
@@ -379,8 +393,8 @@ function generateSummaryPDF(entries, weekFrom, weekTo) {
     doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 6;
     doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y); y += 10;
 
-    const sorted = [...entries].sort((a, b) => a.supply.localeCompare(b.supply));
-    const body = sorted.map(e => [e.supply, String(Math.round(e.total))]);
+    const sorted = [...entries].sort((a, b) => stripTitle(a.supply).localeCompare(stripTitle(b.supply)));
+    const body = sorted.map(e => [stripTitle(e.supply), String(Math.round(e.total))]);
     const grand = sorted.reduce((s, e) => s + Math.round(e.total), 0);
 
     doc.autoTable({
@@ -402,6 +416,67 @@ function generateSummaryPDF(entries, weekFrom, weekTo) {
     return doc.output('arraybuffer');
 }
 
+// Categorize a supply by title prefix.
+function categorizeSupply(name) {
+    const n = String(name || '').trim();
+    if (/^Jyo\./i.test(n)) return 'Jyotisha';
+    if (/^Dr\./i.test(n)) return 'Doctor';
+    return 'Temple';
+}
+
+// Potential-earnings summary PDF — one section per supply category.
+// Columns: Supply | Incentive Earned | eRemedy Earned | Potential Incentive | Potential eRemedy.
+// Potential incentive = 5% of order payment (only when no incentive was earned this week).
+// Potential eRemedy   = 20% of total order count * INR 50 per pooja.
+function generatePotentialEarningsPDF(entries, weekFrom, weekTo) {
+    if (!entries.length) return null;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 25;
+    const R = n => Math.round(Number(n) || 0);
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Incentive & Potential Earnings Summary', 20, y); y += 9;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 6;
+    doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y); y += 10;
+
+    const groups = { Jyotisha: [], Doctor: [], Temple: [] };
+    entries.forEach(e => { groups[categorizeSupply(e.supply)].push(e); });
+
+    ['Jyotisha', 'Doctor', 'Temple'].forEach(cat => {
+        const list = groups[cat].sort((a, b) => stripTitle(a.supply).localeCompare(stripTitle(b.supply)));
+        if (!list.length) return;
+
+        if (y > 250) { doc.addPage(); y = 25; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.text(cat, 20, y); y += 6;
+
+        const body = list.map(e => {
+            const inc = R(e.incentive || 0);
+            const erem = R(e.eRemAmt || 0);
+            const potInc = inc > 0 ? 0 : R((e.orderPaymentTotal || 0) * 0.05);
+            const potERem = R((e.orderCount || 0) * 0.20 * 50);
+            return [ stripTitle(e.supply), String(inc), String(erem), String(potInc), String(potERem) ];
+        });
+
+        doc.autoTable({
+            startY: y,
+            head: [['Supply', 'Incentive Earned', 'eRemedy Earned', 'Potential Incentive', 'Potential eRemedy']],
+            body,
+            theme: 'grid',
+            headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', lineColor: [0,0,0], lineWidth: 0.3 },
+            bodyStyles: { textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3 },
+            styles: { fontSize: 9, cellPadding: 4, font: 'helvetica' },
+            columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 30, halign: 'right' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 32, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
+            margin: { left: 20, right: 20 }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+    });
+
+    return doc.output('arraybuffer');
+}
+
 // Shared PDF generation
 function generatePDF(partnerName, details, tableRows, additionalItems, weekFrom, weekTo) {
     const { jsPDF } = window.jspdf;
@@ -412,7 +487,7 @@ function generatePDF(partnerName, details, tableRows, additionalItems, weekFrom,
     doc.setFontSize(11);
 
     const detailLines = (details || '').split('\n').filter(l => l.trim());
-    doc.text(`Service Provider Name: ${partnerName}`, 20, y); y += 7;
+    doc.text(`Service Provider Name: ${stripTitle(partnerName)}`, 20, y); y += 7;
     doc.text(`Invoice Date: ${todayFormatted()}`, 20, y); y += 7;
     detailLines.forEach(line => { doc.text(line.trim(), 20, y); y += 7; });
     doc.text(`Payment for the week: ${formatDate(weekFrom)} to ${formatDate(weekTo)}`, 20, y);
@@ -594,8 +669,8 @@ const astro = (() => {
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
             const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo, order.sla);
             if (pdf) {
-                zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: partner.name, total: pdf.total });
+                zip.file(`${sanitizeFileName(stripTitle(partner.name))}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: partner.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
                 generated++;
             }
             pFill.style.width = `${((i+1)/total)*100}%`;
@@ -611,8 +686,8 @@ const astro = (() => {
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
             const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo);
             if (pdf) {
-                zip.file(`${sanitizeFileName(partner.name)}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: partner.name, total: pdf.total });
+                zip.file(`${sanitizeFileName(stripTitle(partner.name))}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: partner.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
                 generated++;
             }
         }
@@ -633,6 +708,10 @@ const astro = (() => {
         // Consolidated summary PDF (Supply name, Total Amount)
         const summaryPdf = generateSummaryPDF(summary, weekFrom, weekTo);
         if (summaryPdf) zip.file(`_Payment_Summary_${dateStr}.pdf`, summaryPdf);
+
+        // Potential-earnings summary (by supply type)
+        const potentialPdf = generatePotentialEarningsPDF(summary, weekFrom, weekTo);
+        if (potentialPdf) zip.file(`_Potential_Earnings_${dateStr}.pdf`, potentialPdf);
 
         const content = await zip.generateAsync({ type: 'blob' });
         const link = document.createElement('a'); link.href = URL.createObjectURL(content); link.download = `Invoices_${dateStr}.zip`; link.click();
@@ -876,8 +955,8 @@ const pooja = (() => {
             const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === supplyKey);
             const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo);
             if (pdf) {
-                zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: info.name, total: pdf.total });
+                zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
                 handled.add(supplyKey);
                 generated++;
             } else {
@@ -899,8 +978,8 @@ const pooja = (() => {
             const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === k);
             const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo);
             if (pdf) {
-                zip.file(`${sanitizeFileName(info.name)}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: info.name, total: pdf.total });
+                zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
+                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
                 generated++;
             }
         });
