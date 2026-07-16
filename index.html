@@ -427,7 +427,7 @@ function categorizeSupply(name) {
 // Potential-earnings summary PDF — one section per supply category.
 // Columns: Supply | Incentive Earned | eRemedy Earned | Potential Incentive | Potential eRemedy.
 // Potential incentive = 5% of order payment (only when no incentive was earned this week).
-// Potential eRemedy   = 20% of total order count * INR 50 per pooja.
+// Potential eRemedy   = total order count * INR 50 per pooja.
 function generatePotentialEarningsPDF(entries, weekFrom, weekTo) {
     if (!entries.length) return null;
     const { jsPDF } = window.jspdf;
@@ -456,7 +456,7 @@ function generatePotentialEarningsPDF(entries, weekFrom, weekTo) {
             const inc = R(e.incentive || 0);
             const erem = R(e.eRemAmt || 0);
             const potInc = inc > 0 ? 0 : R((e.orderPaymentTotal || 0) * 0.05);
-            const potERem = R((e.orderCount || 0) * 0.20 * 50);
+            const potERem = R((e.orderCount || 0) * 50);
             return [ stripTitle(e.supply), String(inc), String(erem), String(potInc), String(potERem) ];
         });
 
