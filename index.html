@@ -250,11 +250,26 @@ function partnerKey(s) {
     return stripTitle(s).toLowerCase();
 }
 
-// SLA-based incentive eligibility: blank values default to 100 (fully met).
+// SLA-based incentive eligibility: blank / "-" values default to 100
+// (fully met). Sheet values arrive as strings like "97.0%" or "-" — strip
+// the percent sign and treat any non-numeric as blank.
+function slaValue(v) {
+    if (v === undefined || v === null) return 100;
+    // Numeric cells: Excel percentage format stores values 0..1 (e.g. 0.97
+    // for 97%). Scale those up. Values > 1 are treated as already being
+    // in percentage form.
+    if (typeof v === 'number') {
+        if (isNaN(v)) return 100;
+        return (v > 0 && v <= 1) ? v * 100 : v;
+    }
+    const s = String(v).trim().replace(/%$/, '').trim();
+    if (s === '' || s === '-') return 100;
+    const n = parseFloat(s);
+    return isNaN(n) ? 100 : n;
+}
 function isIncentiveEligible(sla) {
     const s = sla || {};
-    const val = v => (v === undefined || v === null || v === '' || Number.isNaN(v)) ? 100 : Number(v);
-    return val(s.prashna_sla) >= 98 && val(s.consultation_sla) >= 98 && val(s.camera_on_pct) >= 100 && val(s.csat) >= 85;
+    return slaValue(s.prashna_sla) >= 98 && slaValue(s.consultation_sla) >= 98 && slaValue(s.camera_on_pct) >= 100 && slaValue(s.csat) >= 85;
 }
 
 // Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
