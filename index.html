@@ -127,6 +127,18 @@
                     <div class="partners-preview" id="a-ordersPreview"></div>
                 </div>
             </div>
+            <div class="card">
+                <div class="card-title">Override Incentive <span class="badge badge-count" id="a-overrideCount"></span></div>
+                <div style="font-size:0.78rem;color:#6b7280;margin-bottom:10px;">Force the 5% incentive on the checked supplies, regardless of SLA. Type to filter the list.</div>
+                <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+                    <div style="flex:2;min-width:260px;">
+                        <input type="text" id="a-overrideSearch" placeholder="Type to search supplies…" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;font-size:0.85rem;margin-bottom:6px;">
+                        <div id="a-overrideOptions" style="max-height:220px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;padding:4px;background:#fff;"></div>
+                    </div>
+                    <button class="btn btn-add" onclick="astro.addOverrides()" style="align-self:flex-start;">Override Incentive</button>
+                </div>
+                <div class="additional-list" id="a-overrideList"></div>
+            </div>
             <div class="row-2col">
                 <div class="card">
                     <div class="card-title">Pooja Details Sheet</div>
@@ -273,7 +285,7 @@ function isIncentiveEligible(sla) {
 }
 
 // Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
-function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noShowCount, dakshina, additionalItems, weekFrom, weekTo, slaInfo) {
+function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noShowCount, dakshina, additionalItems, weekFrom, weekTo, slaInfo, forceIncentive) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     let y = 25;
@@ -323,9 +335,11 @@ function generateAstroPDF(partnerName, details, taxableRows, eRemediesStr, noSho
         taxableBody.push(['No Show', String(noShowCount), '60', String(amt)]);
     }
 
-    // Incentive: 5% of the order-payment total when SLA thresholds pass.
-    // Blank SLA columns default to 100%. Row is only shown when > 0.
-    const incentive = (orderPaymentTotal > 0 && isIncentiveEligible(slaInfo)) ? R(orderPaymentTotal * 0.05) : 0;
+    // Incentive: 5% of the order-payment total when SLA thresholds pass or
+    // the supply is on the manual override list. Blank SLA columns default
+    // to 100%. Row is only shown when > 0.
+    const eligible = forceIncentive === true || isIncentiveEligible(slaInfo);
+    const incentive = (orderPaymentTotal > 0 && eligible) ? R(orderPaymentTotal * 0.05) : 0;
     if (incentive > 0) {
         taxableTotal += incentive;
         taxableBody.push(['Incentive', '1', '5% of order payment', String(incentive)]);
@@ -551,8 +565,15 @@ function generatePDF(partnerName, details, tableRows, additionalItems, weekFrom,
 // ==================== NON-POOJA MODULE ====================
 const astro = (() => {
     let partnerDB = [], ordersData = [], additionalPayments = [];
+    const incentiveOverrides = new Set();     // partnerKey(name) → forces 5% incentive
+    const overrideDisplayNames = new Map();   // partnerKey(name) → original display name
+    const pendingOverrideChecks = new Set();  // partnerKey(name) → checkbox is checked, not yet applied
     const SKU_KEYS = ['15 mins','30 mins','60 mins','Prashna','ShubhKarya','Kundali'];
     const SKU_DISPLAY = { '15 mins':'15 Min Consultation','30 mins':'30 Min Consultation','60 mins':'60 Min Consultation','Prashna':'Prashna','ShubhKarya':'ShubhKarya','Kundali':'Handwritten Kundali' };
+
+    // Live search over the override-incentive checkbox list.
+    const _overrideSearchEl = document.getElementById('a-overrideSearch');
+    if (_overrideSearchEl) _overrideSearchEl.addEventListener('input', renderOverrideOptions);
 
     setupDropZone('a-dbZone', 'a-dbFile', file => {
         document.getElementById('a-dbFileName').textContent = file.name;
@@ -602,9 +623,7 @@ const astro = (() => {
         el.innerHTML = h + '</table>';
     }
 
-    function updateDropdown() {
-        const sel = document.getElementById('a-addPartnerSelect');
-        sel.innerHTML = '<option value="">Select Partner</option>';
+    function collectAllNames() {
         const names = new Set();
         partnerDB.forEach(p => names.add(p.name));
         ordersData.forEach(o => names.add(o.name));
@@ -614,7 +633,80 @@ const astro = (() => {
         if (typeof pooja !== 'undefined' && pooja.getPartnerNames) {
             pooja.getPartnerNames().forEach(n => names.add(n));
         }
-        [...names].sort().forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
+        return [...names].sort();
+    }
+
+    function updateDropdown() {
+        const sel = document.getElementById('a-addPartnerSelect');
+        sel.innerHTML = '<option value="">Select Partner</option>';
+        const names = collectAllNames();
+        names.forEach(n => { sel.innerHTML += `<option value="${n}">${n}</option>`; });
+        renderOverrideOptions();
+    }
+
+    function renderOverrideOptions() {
+        const container = document.getElementById('a-overrideOptions');
+        if (!container) return;
+        const searchInput = document.getElementById('a-overrideSearch');
+        const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        const pool = collectAllNames().filter(n => !incentiveOverrides.has(partnerKey(n)));
+        const filtered = q ? pool.filter(n => n.toLowerCase().includes(q)) : pool;
+        if (!filtered.length) {
+            container.innerHTML = '<div style="font-size:0.78rem;color:#9ca3af;padding:10px;text-align:center;">No matches</div>';
+            return;
+        }
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        container.innerHTML = filtered.map((n, i) => {
+            const k = partnerKey(n);
+            const checked = pendingOverrideChecks.has(k) ? 'checked' : '';
+            return `<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;cursor:pointer;font-size:0.85rem;border-radius:4px;" onmouseover="this.style.background='#f4f6ff'" onmouseout="this.style.background=''"><input type="checkbox" data-override-name="${esc(n)}" ${checked} style="cursor:pointer;">${esc(n)}</label>`;
+        }).join('');
+        container.querySelectorAll('input[data-override-name]').forEach(cb => {
+            cb.addEventListener('change', e => {
+                const nm = e.target.getAttribute('data-override-name');
+                const k = partnerKey(nm);
+                if (e.target.checked) pendingOverrideChecks.add(k);
+                else pendingOverrideChecks.delete(k);
+            });
+        });
+    }
+
+    function addOverrides() {
+        if (!pendingOverrideChecks.size) { alert('Tick at least one supply from the list.'); return; }
+        const pool = collectAllNames();
+        pendingOverrideChecks.forEach(k => {
+            const name = pool.find(n => partnerKey(n) === k) || overrideDisplayNames.get(k) || k;
+            incentiveOverrides.add(k);
+            overrideDisplayNames.set(k, name);
+        });
+        pendingOverrideChecks.clear();
+        const searchInput = document.getElementById('a-overrideSearch');
+        if (searchInput) searchInput.value = '';
+        renderOverrides();
+        updateDropdown();
+    }
+
+    function removeOverride(idx) {
+        const keys = [...incentiveOverrides];
+        const k = keys[idx];
+        if (k === undefined) return;
+        incentiveOverrides.delete(k);
+        overrideDisplayNames.delete(k);
+        renderOverrides();
+        updateDropdown();
+    }
+
+    function renderOverrides() {
+        const el = document.getElementById('a-overrideList');
+        const badge = document.getElementById('a-overrideCount');
+        const keys = [...incentiveOverrides];
+        if (badge) badge.textContent = keys.length ? `${keys.length} on override` : '';
+        if (!keys.length) { el.innerHTML = ''; return; }
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        el.innerHTML = keys.map((k, i) => {
+            const name = esc(overrideDisplayNames.get(k) || k);
+            return `<div class="additional-item"><div class="info"><strong>${name}</strong> &mdash; 5% incentive forced</div><span class="remove-btn" onclick="astro.removeOverride(${i})">&#10005;</span></div>`;
+        }).join('');
     }
 
     function checkReady() {
@@ -682,7 +774,7 @@ const astro = (() => {
             const adj15 = Math.max(0, (order.counts['15 mins']||0) - kundaliCount);
 
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: k==='15 mins' ? adj15 : order.counts[k], price: partner.prices[k] }));
-            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo, order.sla);
+            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, order.eRemedies, order.noShow, order.dakshina, partnerAdd, weekFrom, weekTo, order.sla, incentiveOverrides.has(key));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(partner.name))}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: partner.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
@@ -699,7 +791,7 @@ const astro = (() => {
             const partner = dbMap[key]; if (!partner) continue;
             const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === key);
             const lineItems = SKU_KEYS.map(k => ({ serviceType: SKU_DISPLAY[k], count: 0, price: partner.prices[k] }));
-            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(partner.name, partner.details, lineItems, '', 0, 0, partnerAdd, weekFrom, weekTo, undefined, incentiveOverrides.has(key));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(partner.name))}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: partner.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
@@ -711,7 +803,7 @@ const astro = (() => {
         let poojaSkipped = [], poojaUnresolved = [];
         if (typeof pooja !== 'undefined' && pooja.processInto) {
             const astroPartnerKeys = new Set(Object.keys(dbMap));
-            const r = pooja.processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys);
+            const r = pooja.processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys, incentiveOverrides);
             generated += r.generated;
             poojaSkipped = r.skipped;
             poojaUnresolved = r.unresolved;
@@ -742,7 +834,7 @@ const astro = (() => {
         setTimeout(() => { pBar.style.display='none'; }, 1000);
     }
 
-    return { addPayment, removePayment, generate, refresh };
+    return { addPayment, removePayment, generate, refresh, addOverrides, removeOverride };
 })();
 
 // ==================== POOJA MODULE ====================
@@ -933,7 +1025,8 @@ const pooja = (() => {
         return `${keyDisplay} – ${deityDisplay}${variantDisplay}`;
     }
 
-    function processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys) {
+    function processInto(zip, weekFrom, weekTo, additionalPayments, dateStr, astroPartnerKeys, incentiveOverrides) {
+        const isOverride = k => !!(incentiveOverrides && incentiveOverrides.has(k));
         const skipped = [];
         const unresolved = []; // [{ supply, count }]
         const summary = [];    // [{ supply, total }]
@@ -968,7 +1061,7 @@ const pooja = (() => {
 
             const lineItems = Object.values(aggregated).sort((a, b) => a.serviceType.localeCompare(b.serviceType));
             const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === supplyKey);
-            const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo, undefined, isOverride(supplyKey));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
@@ -991,7 +1084,7 @@ const pooja = (() => {
             const info = partnerInfo[k];
             if (!info) return;                                   // not a pooja partner
             const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === k);
-            const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo);
+            const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo, undefined, isOverride(k));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
                 summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
