@@ -281,7 +281,8 @@ function slaValue(v) {
 }
 function isIncentiveEligible(sla) {
     const s = sla || {};
-    return slaValue(s.prashna_sla) >= 98 && slaValue(s.consultation_sla) >= 98 && slaValue(s.camera_on_pct) >= 100 && slaValue(s.csat) >= 85;
+    // camera_on_pct temporarily excluded — data source is unreliable.
+    return slaValue(s.prashna_sla) >= 98 && slaValue(s.consultation_sla) >= 98 && slaValue(s.csat) >= 85;
 }
 
 // Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
