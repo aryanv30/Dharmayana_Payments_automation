@@ -223,10 +223,13 @@ function readExcel(file, callback, allSheets) {
         const wb = XLSX.read(data, { type: 'array' });
         if (allSheets) {
             const sheets = {};
-            wb.SheetNames.forEach(sn => { sheets[sn] = XLSX.utils.sheet_to_json(wb.Sheets[sn]); });
+            // defval: '' — keep empty cells in each row object so downstream
+            // positional access (row[Object.keys(row)[N]]) doesn't silently
+            // shift columns whenever a middle cell happens to be blank.
+            wb.SheetNames.forEach(sn => { sheets[sn] = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '' }); });
             callback(sheets);
         } else {
-            callback(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));
+            callback(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' }));
         }
     };
     reader.readAsArrayBuffer(file);
@@ -580,10 +583,13 @@ const astro = (() => {
         document.getElementById('a-dbFileName').textContent = file.name;
         document.getElementById('a-dbZone').classList.add('uploaded');
         readExcel(file, data => {
+            // Partner Details is a user-authored sheet, so column names aren't
+            // stable — keep positional access, but drop empty-name rows.
             partnerDB = data.map(row => {
                 const c = Object.keys(row);
-                return { name: row[c[0]]||'', details: row[c[1]]||'', prices: { '15 mins':parseFloat(row[c[2]])||0, '30 mins':parseFloat(row[c[3]])||0, '60 mins':parseFloat(row[c[4]])||0, 'Prashna':parseFloat(row[c[5]])||0, 'ShubhKarya':parseFloat(row[c[6]])||0, 'Kundali':parseFloat(row[c[7]])||0 } };
-            });
+                const name = String(row[c[0]]||'').trim();
+                return { name, details: String(row[c[1]]||''), prices: { '15 mins':parseFloat(row[c[2]])||0, '30 mins':parseFloat(row[c[3]])||0, '60 mins':parseFloat(row[c[4]])||0, 'Prashna':parseFloat(row[c[5]])||0, 'ShubhKarya':parseFloat(row[c[6]])||0, 'Kundali':parseFloat(row[c[7]])||0 } };
+            }).filter(p => p.name);
             renderPreview(); updateDropdown(); checkReady();
         });
     });
@@ -592,18 +598,32 @@ const astro = (() => {
         document.getElementById('a-ordersFileName').textContent = file.name;
         document.getElementById('a-ordersZone').classList.add('uploaded');
         readExcel(file, data => {
-            ordersData = data.map(row => {
-                const c = Object.keys(row);
-                const slaRaw = i => { const v = row[c[i]]; return (v === undefined || v === null || String(v).trim() === '') ? '' : v; };
-                return {
-                    name: row[c[0]]||'',
-                    counts: { 'Prashna':parseInt(row[c[1]])||0, 'ShubhKarya':parseInt(row[c[2]])||0, 'Kundali':parseInt(row[c[3]])||0, '15 mins':parseInt(row[c[4]])||0, '30 mins':parseInt(row[c[5]])||0, '60 mins':parseInt(row[c[6]])||0 },
-                    noShow: parseInt(row[c[7]])||0,
-                    dakshina: parseFloat(row[c[8]])||0,
-                    eRemedies: String(row[c[10]]||'').trim(),
-                    sla: { prashna_sla: slaRaw(11), consultation_sla: slaRaw(12), camera_on_pct: slaRaw(13), csat: slaRaw(14) }
-                };
-            });
+            // Read by header name — the redshift export has stable column
+            // names, so this is safe against reordering or new columns.
+            const get = (row, ...keys) => {
+                for (const k of keys) if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+                return '';
+            };
+            ordersData = data.map(row => ({
+                name: String(get(row, 'supply_name')).trim(),
+                counts: {
+                    'Prashna':    parseInt(get(row, 'total_prashna'))     || 0,
+                    'ShubhKarya': parseInt(get(row, 'total_shubh_karya')) || 0,
+                    'Kundali':    parseInt(get(row, 'total_kundali'))     || 0,
+                    '15 mins':    parseInt(get(row, '15_mins'))           || 0,
+                    '30 mins':    parseInt(get(row, '30_mins'))           || 0,
+                    '60 mins':    parseInt(get(row, '60_mins'))           || 0
+                },
+                noShow: parseInt(get(row, 'total_noshow')) || 0,
+                dakshina: parseFloat(get(row, 'total_dakshina')) || 0,
+                eRemedies: String(get(row, 'eremedy_pooja_amounts')).trim(),
+                sla: {
+                    prashna_sla:      get(row, 'prashna_sla'),
+                    consultation_sla: get(row, 'consultation_sla'),
+                    camera_on_pct:    get(row, 'camera_on_pct'),
+                    csat:             get(row, 'csat')
+                }
+            })).filter(o => o.name);   // drop blank-name rows entirely
             renderOrdersPreview(); checkReady();
         });
     });
@@ -974,13 +994,17 @@ const pooja = (() => {
             partnerInfo = {};
             const activeKey = Object.keys(sheets).find(k => k.toLowerCase().trim().startsWith('active')) || Object.keys(sheets)[0];
             const activeSheet = sheets[activeKey] || [];
+            // Header-based access — COGS export column names are stable.
+            const get = (row, ...keys) => {
+                for (const k of keys) if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+                return '';
+            };
             activeSheet.forEach(row => {
-                const cols = Object.keys(row);
-                const key = normalizeKey(row[cols[0]]);
-                const deity = normalizeKey(row[cols[2]]);
-                const variantName = String(row[cols[3]]||'').trim();
-                const cogs = parseFloat(row[cols[6]]) || 0;
+                const key = normalizeKey(get(row, 'pooja_key'));
                 if (!key) return;
+                const deity = normalizeKey(get(row, 'deity_name'));
+                const variantName = String(get(row, 'variant_name')).trim();
+                const cogs = parseFloat(get(row, 'COGS')) || 0;
                 const variant = normalizeVariant(variantName);
                 cogsMap[`${key}|${deity}|${variant}`] = cogs;
             });
@@ -1006,11 +1030,14 @@ const pooja = (() => {
         document.getElementById('p-ordersFileName').textContent = file.name;
         document.getElementById('p-ordersZone').classList.add('uploaded');
         readExcel(file, data => {
+            const get = (row, ...keys) => {
+                for (const k of keys) if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+                return '';
+            };
             ordersData = data.map(row => {
-                const cols = Object.keys(row);
-                const supply = String(row[cols[0]]||'').trim();
-                const dakshina = parseFloat(row[cols[1]]) || 0;
-                const orders = parseOrders(String(row[cols[2]]||''));
+                const supply = String(get(row, 'supply_name')).trim();
+                const dakshina = parseFloat(get(row, 'total_dakshina')) || 0;
+                const orders = parseOrders(String(get(row, 'poojas_booked')));
                 return { supply, dakshina, orders };
             }).filter(r => r.supply);
             supplyNames = new Set(ordersData.map(o => o.supply));
