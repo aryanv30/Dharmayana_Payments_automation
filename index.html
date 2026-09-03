@@ -159,6 +159,16 @@
                     </div>
                 </div>
             </div>
+            <div class="card">
+                <div class="card-title">Pooja Incentives <span class="badge badge-count" id="p-incCount"></span></div>
+                <div style="font-size:0.78rem;color:#6b7280;margin-bottom:10px;">Add a fixed incentive amount for a temple partner. Adds a Taxable "Incentive" row to their invoice.</div>
+                <div class="payment-form">
+                    <select id="p-incPartnerSelect"><option value="">Select Temple Partner</option></select>
+                    <input type="number" id="p-incAmount" placeholder="Amount" min="0">
+                    <button class="btn btn-add" onclick="pooja.addIncentive()">Add Incentive</button>
+                </div>
+                <div class="additional-list" id="p-incList"></div>
+            </div>
             <div class="card" id="p-cogsCard" style="display:none;">
                 <div class="card-title">Add COGS for Pooja <span class="badge badge-warn" id="p-cogsCount"></span></div>
                 <div id="p-cogsList"></div>
@@ -283,9 +293,13 @@ function slaValue(v) {
     return isNaN(n) ? 100 : n;
 }
 function isIncentiveEligible(sla) {
-    const s = sla || {};
+    // Only supplies with an SLA record (i.e. astro consultation supplies)
+    // are eligible for the automatic 5% incentive. Pooja / other invoices
+    // pass slaInfo = undefined and never fire this bonus unless the user
+    // manually overrides them via the Override Incentive picker.
+    if (!sla) return false;
     // camera_on_pct temporarily excluded — data source is unreliable.
-    return slaValue(s.prashna_sla) >= 98 && slaValue(s.consultation_sla) >= 98 && slaValue(s.csat) >= 85;
+    return slaValue(sla.prashna_sla) >= 98 && slaValue(sla.consultation_sla) >= 98 && slaValue(sla.csat) >= 85;
 }
 
 // Astrology PDF generation — two-section (Taxable / Non-Taxable) layout
@@ -488,8 +502,10 @@ function generatePotentialEarningsPDF(entries, weekFrom, weekTo) {
         const body = list.map(e => {
             const inc = R(e.incentive || 0);
             const erem = R(e.eRemAmt || 0);
-            const potInc = inc > 0 ? 0 : R((e.orderPaymentTotal || 0) * 0.05);
-            const potERem = R((e.orderCount || 0) * 50);
+            // Pooja invoices never earn the consultation incentive or the
+            // eRemedy commission, so their "potential" for both is 0.
+            const potInc  = e.isPooja ? 0 : (inc > 0 ? 0 : R((e.orderPaymentTotal || 0) * 0.05));
+            const potERem = e.isPooja ? 0 : R((e.orderCount || 0) * 50);
             return [ stripTitle(e.supply), String(inc), String(erem), String(potInc), String(potERem) ];
         });
 
@@ -866,6 +882,7 @@ const pooja = (() => {
     let ordersData = [];    // [{ supply, dakshina, orders: [{key, deity, variant, count}] }]
     let supplyNames = new Set();
     let partnerInfo = {};   // { supply_name_lower: { name, details } }
+    let poojaIncentives = []; // [{ partner, amount }] — manual per-temple incentive
 
     function normalizeKey(s) {
         // Collapse en-dash / em-dash to hyphen-minus so the COGS sheet (which
@@ -981,6 +998,39 @@ const pooja = (() => {
         });
     }
 
+    function updateIncentiveDropdown() {
+        const sel = document.getElementById('p-incPartnerSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Select Temple Partner</option>';
+        Object.values(partnerInfo).map(p => p.name).sort().forEach(n => {
+            sel.innerHTML += `<option value="${n}">${n}</option>`;
+        });
+    }
+
+    function renderIncentives() {
+        const el = document.getElementById('p-incList');
+        const badge = document.getElementById('p-incCount');
+        if (badge) badge.textContent = poojaIncentives.length ? `${poojaIncentives.length} added` : '';
+        if (!el) return;
+        if (!poojaIncentives.length) { el.innerHTML = ''; return; }
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        el.innerHTML = poojaIncentives.map((p, i) =>
+            `<div class="additional-item"><div class="info"><strong>${esc(p.partner)}</strong> &mdash; INR ${p.amount} incentive</div><span class="remove-btn" onclick="pooja.removeIncentive(${i})">&#10005;</span></div>`
+        ).join('');
+    }
+
+    function addIncentive() {
+        const partner = document.getElementById('p-incPartnerSelect').value;
+        const amount = parseFloat(document.getElementById('p-incAmount').value);
+        if (!partner) { alert('Select a temple partner'); return; }
+        if (!amount || amount <= 0) { alert('Enter a valid amount'); return; }
+        poojaIncentives.push({ partner, amount });
+        document.getElementById('p-incAmount').value = '';
+        renderIncentives();
+    }
+
+    function removeIncentive(idx) { poojaIncentives.splice(idx, 1); renderIncentives(); }
+
     function hasPending() { return pendingCogs.length > 0; }
     function allCogsFilled() {
         return pendingCogs.every(p => manualCogs[`${p.key}|${p.deity}|${p.variant}`] !== undefined);
@@ -1022,6 +1072,7 @@ const pooja = (() => {
             }
 
             recomputePending();
+            updateIncentiveDropdown();
             astro.refresh();
         }, true);
     });
@@ -1088,11 +1139,14 @@ const pooja = (() => {
             });
 
             const lineItems = Object.values(aggregated).sort((a, b) => a.serviceType.localeCompare(b.serviceType));
-            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === supplyKey);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === supplyKey)
+                .concat(poojaIncentives
+                    .filter(pi => partnerKey(pi.partner) === supplyKey)
+                    .map(pi => ({ reason: 'Incentive', amount: pi.amount, section: 'taxable' })));
             const pdf = generateAstroPDF(info.name, info.details, lineItems, '', 0, supplyOrder.dakshina, partnerAdd, weekFrom, weekTo, undefined, isOverride(supplyKey));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
+                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount, isPooja: true });
                 handled.add(supplyKey);
                 generated++;
             } else {
@@ -1104,18 +1158,25 @@ const pooja = (() => {
         });
 
         // Pooja partners present only in the Details sheet (no orders) but with
-        // an additional payment — generate an invoice for just that payment.
-        const addKeys = new Set(additionalPayments.map(a => partnerKey(a.partner)));
+        // an additional payment or a manual Pooja Incentive — generate an
+        // invoice for just those.
+        const addKeys = new Set([
+            ...additionalPayments.map(a => partnerKey(a.partner)),
+            ...poojaIncentives.map(pi => partnerKey(pi.partner))
+        ]);
         addKeys.forEach(k => {
             if (handled.has(k)) return;                          // already invoiced above
             if (astroPartnerKeys && astroPartnerKeys.has(k)) return; // astro covers it
             const info = partnerInfo[k];
             if (!info) return;                                   // not a pooja partner
-            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === k);
+            const partnerAdd = additionalPayments.filter(a => partnerKey(a.partner) === k)
+                .concat(poojaIncentives
+                    .filter(pi => partnerKey(pi.partner) === k)
+                    .map(pi => ({ reason: 'Incentive', amount: pi.amount, section: 'taxable' })));
             const pdf = generateAstroPDF(info.name, info.details, [], '', 0, 0, partnerAdd, weekFrom, weekTo, undefined, isOverride(k));
             if (pdf) {
                 zip.file(`${sanitizeFileName(stripTitle(info.name))}_${dateStr}.pdf`, pdf.buffer);
-                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount });
+                summary.push({ supply: info.name, total: pdf.total, incentive: pdf.incentive, eRemAmt: pdf.eRemAmt, orderPaymentTotal: pdf.orderPaymentTotal, orderCount: pdf.orderCount, isPooja: true });
                 generated++;
             }
         });
@@ -1127,7 +1188,7 @@ const pooja = (() => {
     function hasData() { return ordersData.length > 0 || Object.keys(partnerInfo).length > 0; }
     function getPartnerNames() { return new Set(Object.values(partnerInfo).map(p => p.name)); }
 
-    return { processInto, getSupplyNames, getPartnerNames, hasData, hasPending, allCogsFilled };
+    return { processInto, getSupplyNames, getPartnerNames, hasData, hasPending, allCogsFilled, addIncentive, removeIncentive };
 })();
 
 </script>
